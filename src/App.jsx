@@ -956,6 +956,7 @@ function App() {
     const prompt = `Please analyze this food item. Based on the description: "${foodDescription}", and the image if provided, provide an estimate for the following nutritional values per serving in grams or calories (use calories for energy, grams for protein, fats, sugars), and include a confidence level for each estimate ("high", "medium", "low"). Provide the response in JSON format according to this schema: { "foodItem": "string", "calories": { "value": "number", "unit": "string", "confidence": "string" }, "protein": { "value": "number", "unit": "string", "confidence": "string" }, "fats": { "value": "number", "unit": "string", "confidence": "string" }, "sugars": { "value": "number", "unit": "string", "confidence": "string" } }`;
 
     const parts = [{ text: prompt }];
+    console.log("foodImage=>",foodImage)
     if (foodImage) {
       try {
         const base64ImageData = await fileToBase64(foodImage);
@@ -968,7 +969,7 @@ function App() {
       } catch (e) {
         console.error("Error converting image to base64:", e);
         setError(
-          "Could not process image. Please try again or use description only."
+          "Could not process your image. Please try again or use description only."
         );
         setLoading(false);
         return;
@@ -1030,7 +1031,7 @@ function App() {
       },
     };
 
-    const apiKey = "";
+    const apiKey = "AIzaSyBS-Ht9jg81rG2nPhJkz2nBc29f-YuBO5M";
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
     let retryCount = 0;
@@ -1237,7 +1238,7 @@ function App() {
       },
     };
 
-    const apiKey = "";
+    const apiKey = "AIzaSyBS-Ht9jg81rG2nPhJkz2nBc29f-YuBO5M";
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
     let retryCount = 0;
@@ -1369,7 +1370,7 @@ function App() {
       },
     };
 
-    const apiKey = "";
+    const apiKey = "AIzaSyBS-Ht9jg81rG2nPhJkz2nBc29f-YuBO5M";
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
     let retryCount = 0;
@@ -1483,7 +1484,7 @@ function App() {
       },
     };
 
-    const apiKey = "";
+    const apiKey = "AIzaSyBS-Ht9jg81rG2nPhJkz2nBc29f-YuBO5M";
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
     let retryCount = 0;
@@ -1590,7 +1591,7 @@ function App() {
       },
     };
 
-    const apiKey = "";
+    const apiKey = "AIzaSyBS-Ht9jg81rG2nPhJkz2nBc29f-YuBO5M";
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
     let retryCount = 0;
@@ -1900,7 +1901,7 @@ function App() {
       },
     };
 
-    const apiKey = ""; // API key is handled by Canvas environment
+    const apiKey = "AIzaSyBS-Ht9jg81rG2nPhJkz2nBc29f-YuBO5M"; // API key is handled by Canvas environment
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
     let retryCount = 0;
