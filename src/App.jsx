@@ -2057,7 +2057,7 @@ function App() {
                 d="M9 19V6l12-3v13m-6 0V9.333L9 12V19m0-7l-2 5m2-5.333L9 12M13 19V9.333L16 12V19m0-7l-2 5m2-5.333L16 12"
               />
             </svg>
-            Fitness Tracker
+            Fitness assistant
           </h1>
           {/* Dark Mode Toggle Button */}
           <button
