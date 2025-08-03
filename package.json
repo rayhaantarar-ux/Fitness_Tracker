@@ -1,66 +1,36 @@
 {
-  "name": "npm_install_tailwindcss",
-  "version": "0.1.0",
+  "name": "fitness-tracker",
   "private": true,
-  "dependencies": {
-    "@craco/craco": "^7.1.0",
-    "@testing-library/dom": "^10.4.0",
-    "@testing-library/jest-dom": "^6.6.4",
-    "@testing-library/react": "^16.3.0",
-    "@testing-library/user-event": "^14.6.1",
-    "build": "^0.1.4",
-    "css": "^3.0.0",
-    "firebase": "^12.0.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "react-scripts": "^0.0.0",
-    "recharts": "^3.1.0",
-    "tailwind": "^2.3.1",
-    "web-vitals": "^3.3.0",
-    "ws": "^8.18.3"
-  },
+  "version": "0.0.0",
+  "type": "module",
   "scripts": {
-    "start": "craco start",
-    "build": "craco build",
-    "test": "craco test",
-    "eject": "react-scripts eject"
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
   },
-  "homepage": "https://my-fitness-app.com",
-  "proxy": "http://localhost:5000",
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+  "dependencies": {
+    "@tailwindcss/vite": "^4.1.11",
+    "firebase": "^12.0.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "recharts": "^3.1.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.30.1",
     "@tailwindcss/postcss": "^4.1.11",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.21",
+    "eslint": "^9.30.1",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "globals": "^16.3.0",
     "postcss": "^8.5.6",
-    "tailwindcss": "^4.1.11"
+    "tailwindcss": "^4.1.11",
+    "typescript": "^5.9.2",
+    "vite": "^7.0.6"
   },
-  "description": "This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).",
-  "main": "postcss.config.js",
-  "keywords": [],
-  "author": "Rayhaan_Tarar",
-  "license": "ISC",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/rayhaantarar-ux/Fitness_Tracker.git"
-  },
-  "bugs": {
-    "url": "https://github.com/rayhaantarar-ux/Fitness_Tracker/issues"
-  }
+  "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531"
 }
