@@ -1285,7 +1285,7 @@ function App() {
     }
   };
 
-  const getDailyNutritionalTargets = async () => {
+   const getDailyNutritionalTargets = async () => {
     setTargetCalculationError("");
     setCalculatingTargets(true);
     setRecommendedDailyTargets({}); // Initialize as empty object
@@ -1377,219 +1377,54 @@ function App() {
     const maxRetries = 3;
     const initialDelay = 1000;
 
-    console.log("Attempting AI call for daily nutrition targets..."); // DEBUG LOG
-
     while (retryCount < maxRetries) {
-      try {
-        const response = await fetch(apiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+        try {
+            const response = await fetch(apiUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
 
-        if (!response.ok) {
-          const errorBody = await response.text();
-          console.error(
-            `HTTP error! status: ${response.status}, body: ${errorBody}`
-          ); // DEBUG LOG
-          throw new Error(`HTTP error! status: ${response.status}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (
+                result.candidates &&
+                result.candidates.length > 0 &&
+                result.candidates[0].content &&
+                result.candidates[0].content.parts &&
+                result.candidates[0].content.parts.length > 0
+            ) {
+                const jsonText = result.candidates[0].content.parts[0].text;
+                const parsedJson = JSON.parse(jsonText);
+                setRecommendedDailyTargets(parsedJson);
+                handleSaveProfile();
+                break;
+            } else {
+                setTargetCalculationError(
+                    "Could not get nutritional targets. Please try again."
+                );
+                break;
+            }
+        } catch (e) {
+            console.error(`Error calculating targets (attempt ${retryCount + 1}):`, e);
+            if (retryCount < maxRetries - 1) {
+                const delay = initialDelay * Math.pow(2, retryCount);
+                await new Promise((res) => setTimeout(res, delay));
+            } else {
+                setTargetCalculationError(
+                    "Failed to calculate targets after multiple attempts. Please try again."
+                );
+            }
+        } finally {
+            retryCount++;
         }
-
-        const result = await response.json();
-        console.log("AI response received:", result); // DEBUG LOG
-
-        if (
-          result.candidates &&
-          result.candidates.length > 0 &&
-          result.candidates[0].content &&
-          result.candidates[0].content.parts &&
-          result.candidates[0].content.parts.length > 0
-        ) {
-          const jsonText = result.candidates[0].content.parts[0].text;
-          const parsedJson = JSON.parse(jsonText);
-          setRecommendedDailyTargets(parsedJson); // Set to the object received
-          // Explicitly trigger a save after AI results are obtained
-          handleSaveProfile();
-          console.log("Recommended daily targets set:", parsedJson); // DEBUG LOG
-          break;
-        } else {
-          setTargetCalculationError(
-            "Could not get daily nutritional targets. Please try again."
-          );
-          setRecommendedDailyTargets({}); // Ensure empty object on error
-          console.log("AI response format unexpected."); // DEBUG LOG
-          break;
-        }
-      } finally {
-        setCalculatingTargets(false);
-      }
     }
+    setCalculatingTargets(false);
   };
-
-  const getMaintenanceDailyGoals = async () => {
-    setMaintenanceGoalsError("");
-    setGettingMaintenanceGoals(true);
-    setMaintenanceGoals({});
-
-    const currentWeightNum = parseFloat(weight) || 0;
-    const heightNum = parseFloat(height) || 0;
-    const ageNum = parseFloat(age) || 0;
-
-    if (
-      isNaN(currentWeightNum) ||
-      currentWeightNum <= 0 ||
-      isNaN(heightNum) ||
-      heightNum <= 0 ||
-      isNaN(ageNum) ||
-      ageNum <= 0 ||
-      !gender
-    ) {
-      setMaintenanceGoalsError(
-        'Please ensure valid positive numbers for current weight, height, and age, and select gender in the "About Me" tab first.'
-      );
-      setGettingMaintenanceGoals(false);
-      return;
-    }
-
-    // Refined prompt for more accuracy based on user feedback (focused on moderate/typical values)
-    const prompt = `For a person with an average, non-athletic activity level, what are *moderate and typical* daily intake targets for calories (kcal), protein (g), fats (g), and sugars (g) to *maintain* their current weight of ${currentWeightNum} kg, given their height is ${heightNum} cm, age is ${ageNum} years, and gender is ${gender}? Emphasize how age, height, weight, and gender typically influence these needs for maintenance in a general population. Provide the response in JSON format according to this schema: { "recommendedCalories": "number", "recommendedProtein": "number", "recommendedFats": "number", "recommendedSugars": "number", "notes": "string" } Include a note explicitly stating this is a general estimate based on typical averages for an average activity level and not personalized medical advice; actual needs vary greatly with individual metabolism and specific activity levels. For fats and sugars, provide maximum recommended daily intake.`;
-
-    const payload = {
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: "OBJECT",
-          properties: {
-            recommendedCalories: { type: "NUMBER" },
-            recommendedProtein: { type: "NUMBER" },
-            recommendedFats: { type: "NUMBER" },
-            recommendedSugars: { type: "NUMBER" },
-            notes: { type: "STRING" },
-          },
-          required: [
-            "recommendedCalories",
-            "recommendedProtein",
-            "recommendedFats",
-            "recommendedSugars",
-          ],
-          propertyOrdering: [
-            "recommendedCalories",
-            "recommendedProtein",
-            "recommendedFats",
-            "recommendedSugars",
-            "notes",
-          ],
-        },
-      },
-    };
-
-    const apiKey = "AIzaSyBS-Ht9jg81rG2nPhJkz2nBc29f-YuBO5M";
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
-    let retryCount = 0;
-    const maxRetries = 3;
-    const initialDelay = 1000;
-
-    while (retryCount < maxRetries) {
-      try {
-        const response = await fetch(apiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) {
-          const errorBody = await response.text();
-          console.error(
-            `HTTP error! status: ${response.status}, body: ${errorBody}`
-          );
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        if (
-          result.candidates &&
-          result.candidates.length > 0 &&
-          result.candidates[0].content &&
-          result.candidates[0].content.parts &&
-          result.candidates[0].content.parts.length > 0
-        ) {
-          const jsonText = result.candidates[0].content.parts[0].text;
-          const parsedJson = JSON.parse(jsonText);
-          setMaintenanceGoals(parsedJson);
-          handleSaveProfile(); // Save the new maintenance goals
-          break;
-        } else {
-          setMaintenanceGoalsError(
-            "Could not get maintenance goals. Please try again."
-          );
-          setMaintenanceGoals({});
-          break;
-        }
-      } finally {
-        setGettingMaintenanceGoals(false);
-      }
-    }
-  };
-
-  const getMuscleGainGoals = async () => {
-    setMuscleGainGoalsError("");
-    setGettingMuscleGainGoals(true);
-    setMuscleGainGoals({}); // Initialize as empty object
-
-    const currentWeightNum = parseFloat(weight) || 0;
-    const heightNum = parseFloat(height) || 0;
-    const ageNum = parseFloat(age) || 0;
-
-    if (
-      isNaN(currentWeightNum) ||
-      currentWeightNum <= 0 ||
-      isNaN(heightNum) ||
-      heightNum <= 0 ||
-      isNaN(ageNum) ||
-      ageNum <= 0 ||
-      !gender
-    ) {
-      setMuscleGainGoalsError(
-        'Please ensure valid positive numbers for current weight, height, and age, and select gender in the "About Me" tab first.'
-      );
-      setGettingMuscleGainGoals(false);
-      return;
-    }
-
-    const prompt = `For a person with an average, non-athletic activity level, focused on *muscle gain* with a high protein, low sugar, and moderate calorie intake, what are typical daily intake targets for calories (kcal), protein (g), fats (g), and sugars (g) to achieve muscle gain, given their current weight is ${currentWeightNum} kg, height is ${heightNum} cm, age is ${ageNum} years, and gender is ${gender}? Emphasize protein intake. Provide the response in JSON format according to this schema: { "recommendedCalories": "number", "recommendedProtein": "number", "recommendedFats": "number", "recommendedSugars": "number", "notes": "string" } Include a note explicitly stating this is a general estimate based on typical averages for an average activity level and not personalized medical advice; actual needs vary greatly with individual metabolism, specific activity levels, and training intensity. For fats and sugars, provide maximum recommended daily intake.`;
-
-    const payload = {
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: "OBJECT",
-          properties: {
-            recommendedCalories: { type: "NUMBER" },
-            recommendedProtein: { type: "NUMBER" },
-            recommendedFats: { type: "NUMBER" },
-            recommendedSugars: { type: "NUMBER" },
-            notes: { type: "STRING" },
-          },
-          required: [
-            "recommendedCalories",
-            "recommendedProtein",
-            "recommendedFats",
-            "recommendedSugars",
-          ],
-          propertyOrdering: [
-            "recommendedCalories",
-            "recommendedProtein",
-            "recommendedFats",
-            "recommendedSugars",
-            "notes",
-          ],
-        },
-      },
-    };
 
     const apiKey = "AIzaSyBS-Ht9jg81rG2nPhJkz2nBc29f-YuBO5M";
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
@@ -4853,6 +4688,6 @@ function App() {
       </div>
     </div>
   );
-}
+};
 
 export default App;
