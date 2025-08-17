@@ -956,7 +956,7 @@ function App() {
     const prompt = `Please analyze this food item. Based on the description: "${foodDescription}", and the image if provided, provide an estimate for the following nutritional values per serving in grams or calories (use calories for energy, grams for protein, fats, sugars), and include a confidence level for each estimate ("high", "medium", "low"). Provide the response in JSON format according to this schema: { "foodItem": "string", "calories": { "value": "number", "unit": "string", "confidence": "string" }, "protein": { "value": "number", "unit": "string", "confidence": "string" }, "fats": { "value": "number", "unit": "string", "confidence": "string" }, "sugars": { "value": "number", "unit": "string", "confidence": "string" } }`;
 
     const parts = [{ text: prompt }];
-    console.log("foodImage=>",foodImage)
+    console.log("foodImage=>", foodImage);
     if (foodImage) {
       try {
         const base64ImageData = await fileToBase64(foodImage);
@@ -1285,7 +1285,7 @@ function App() {
     }
   };
 
-   const getDailyNutritionalTargets = async () => {
+  const getDailyNutritionalTargets = async () => {
     setTargetCalculationError("");
     setCalculatingTargets(true);
     setRecommendedDailyTargets({}); // Initialize as empty object
@@ -1378,54 +1378,58 @@ function App() {
     const initialDelay = 1000;
 
     while (retryCount < maxRetries) {
-        try {
-            const response = await fetch(apiUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
+      try {
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const result = await response.json();
-
-            if (
-                result.candidates &&
-                result.candidates.length > 0 &&
-                result.candidates[0].content &&
-                result.candidates[0].content.parts &&
-                result.candidates[0].content.parts.length > 0
-            ) {
-                const jsonText = result.candidates[0].content.parts[0].text;
-                const parsedJson = JSON.parse(jsonText);
-                setRecommendedDailyTargets(parsedJson);
-                handleSaveProfile();
-                break;
-            } else {
-                setTargetCalculationError(
-                    "Could not get nutritional targets. Please try again."
-                );
-                break;
-            }
-        } catch (e) {
-            console.error(`Error calculating targets (attempt ${retryCount + 1}):`, e);
-            if (retryCount < maxRetries - 1) {
-                const delay = initialDelay * Math.pow(2, retryCount);
-                await new Promise((res) => setTimeout(res, delay));
-            } else {
-                setTargetCalculationError(
-                    "Failed to calculate targets after multiple attempts. Please try again."
-                );
-            }
-        } finally {
-            retryCount++;
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
+
+        const result = await response.json();
+
+        if (
+          result.candidates &&
+          result.candidates.length > 0 &&
+          result.candidates[0].content &&
+          result.candidates[0].content.parts &&
+          result.candidates[0].content.parts.length > 0
+        ) {
+          const jsonText = result.candidates[0].content.parts[0].text;
+          const parsedJson = JSON.parse(jsonText);
+          setRecommendedDailyTargets(parsedJson);
+          handleSaveProfile();
+          break;
+        } else {
+          setTargetCalculationError(
+            "Could not get nutritional targets. Please try again."
+          );
+          break;
+        }
+      } catch (e) {
+        console.error(
+          `Error calculating targets (attempt ${retryCount + 1}):`,
+          e
+        );
+        if (retryCount < maxRetries - 1) {
+          const delay = initialDelay * Math.pow(2, retryCount);
+          await new Promise((res) => setTimeout(res, delay));
+        } else {
+          setTargetCalculationError(
+            "Failed to calculate targets after multiple attempts. Please try again."
+          );
+        }
+      } finally {
+        retryCount++;
+      }
     }
     setCalculatingTargets(false);
   };
 
+  const callGenerativeModel = async (payload) => {
     const apiKey = "AIzaSyBS-Ht9jg81rG2nPhJkz2nBc29f-YuBO5M";
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
@@ -4688,6 +4692,6 @@ function App() {
       </div>
     </div>
   );
-};
+}
 
 export default App;
