@@ -371,6 +371,133 @@ function App() {
       getColorValue("alertGreenText")
     );
   }, [isDarkMode]);
+const setWeightLossGoals = async () => {
+    setTargetCalculationError("");
+    setCalculatingTargets(true);
+    setRecommendedDailyTargets({}); // Initialize as empty object
+
+    const currentWeightNum = parseFloat(weight) || 0;
+    const heightNum = parseFloat(height) || 0;
+    const ageNum = parseFloat(age) || 0;
+    const genderType = gender;
+    const targetWeightNum = parseFloat(targetWeight) || 0;
+    const targetDateObj = targetDate ? new Date(targetDate) : null;
+    const currentDateObj = new Date();
+
+    // Basic validation check
+    if (
+        isNaN(currentWeightNum) || currentWeightNum <= 0 ||
+        isNaN(heightNum) || heightNum <= 0 ||
+        isNaN(ageNum) || ageNum <= 0 ||
+        !genderType
+    ) {
+        setTargetCalculationError(
+            "Please ensure valid positive numbers for current weight, height, and age, and select gender in the 'About Me' tab."
+        );
+        setCalculatingTargets(false);
+        return;
+    }
+
+    // Specific validation for weight loss
+    if (
+        isNaN(targetWeightNum) || targetWeightNum <= 0 ||
+        !targetDateObj || isNaN(targetDateObj.getTime()) ||
+        targetDateObj <= currentDateObj
+    ) {
+        setTargetCalculationError(
+            "For weight loss, please ensure a valid positive target weight and a future target date."
+        );
+        setCalculatingTargets(false);
+        return;
+    }
+
+    const prompt = `For a ${ageNum}-year-old ${genderType} who weighs ${currentWeightNum}kg and is ${heightNum}cm tall, what are the recommended daily nutritional targets (calories, protein, fats, sugars) for a healthy weight loss plan to reach a target weight of ${targetWeightNum}kg by ${targetDate}? The current date is ${currentDateObj.toDateString()}. Provide the response in JSON format according to this schema: { "calories": { "value": "number", "unit": "string" }, "protein": { "value": "number", "unit": "string" }, "fats": { "value": "number", "unit": "string" }, "sugars": { "value": "number", "unit": "string" } }`;
+
+    const payload = {
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: "OBJECT",
+                properties: {
+                    calories: {
+                        type: "OBJECT",
+                        properties: { value: { type: "NUMBER" }, unit: { type: "STRING" } },
+                    },
+                    protein: {
+                        type: "OBJECT",
+                        properties: { value: { type: "NUMBER" }, unit: { type: "STRING" } },
+                    },
+                    fats: {
+                        type: "OBJECT",
+                        properties: { value: { type: "NUMBER" }, unit: { type: "STRING" } },
+                    },
+                    sugars: {
+                        type: "OBJECT",
+                        properties: { value: { type: "NUMBER" }, unit: { type: "STRING" } },
+                    },
+                },
+                required: ["calories", "protein", "fats", "sugars"],
+                propertyOrdering: ["calories", "protein", "fats", "sugars"],
+            },
+        },
+    };
+
+    const apiKey = "AIzaSyBS-Ht9jg81rG2nPhJkz2nBc29f-YuBO5M";
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+    let retryCount = 0;
+    const maxRetries = 3;
+    const initialDelay = 1000;
+
+    while (retryCount < maxRetries) {
+        try {
+            const response = await fetch(apiUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (
+                result.candidates &&
+                result.candidates.length > 0 &&
+                result.candidates[0].content &&
+                result.candidates[0].content.parts &&
+                result.candidates[0].content.parts.length > 0
+            ) {
+                const jsonText = result.candidates[0].content.parts[0].text;
+                const parsedJson = JSON.parse(jsonText);
+                setRecommendedDailyTargets(parsedJson);
+                handleSaveProfile();
+                break;
+            } else {
+                setTargetCalculationError(
+                    "Could not get nutritional targets. Please try again."
+                );
+                break;
+            }
+        } catch (e) {
+            console.error(`Error calculating targets (attempt ${retryCount + 1}):`, e);
+            if (retryCount < maxRetries - 1) {
+                const delay = initialDelay * Math.pow(2, retryCount);
+                await new Promise((res) => setTimeout(res, delay));
+            } else {
+                setTargetCalculationError(
+                    "Failed to calculate targets after multiple attempts. Please try again."
+                );
+            }
+        } finally {
+            retryCount++;
+        }
+    }
+    setCalculatingTargets(false);
+};
 
   // Initialize Firebase and Auth. Runs once on mount.
   useEffect(() => {
