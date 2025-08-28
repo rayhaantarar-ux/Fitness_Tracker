@@ -61,7 +61,11 @@ function App() {
   const [mealType, setMealType] = useState("Breakfast");
   const [selectedTab, setSelectedTab] = useState("aboutMe");
   const [dailyDisplayMode, setDailyDisplayMode] = useState("numbers");
-  const [weeklyDisplayMode, setWeeklyDisplayMode] = useState("numbers");
+
+  // States for History view in Tracking tab
+  const [historyDate, setHistoryDate] = useState(new Date().toISOString().split('T')[0]); // Default to today
+  const [historyTotals, setHistoryTotals] = useState({ calories: 0, protein: 0, fats: 0, sugars: 0 });
+  const [historyEntries, setHistoryEntries] = useState([]);
 
   // States for "About me"
   const [weight, setWeight] = useState(0); // in kg - Initialized to 0
@@ -98,6 +102,8 @@ function App() {
   // States for "Workout" tab
   const [workoutType, setWorkoutType] = useState("");
   const [workoutDuration, setWorkoutDuration] = useState(""); // in minutes
+  const [workoutSets, setWorkoutSets] = useState(""); // New state for sets
+  const [workoutReps, setWorkoutReps] = useState(""); // New state for reps
   const [workoutNotes, setWorkoutNotes] = useState("");
   const [workoutDate, setWorkoutDate] = useState("");
   const [workoutEntries, setWorkoutEntries] = useState([]);
@@ -131,6 +137,61 @@ function App() {
   const foodEntriesUnsubscribe = useRef(null);
   const userProfileUnsubscribe = useRef(null);
   const workoutEntriesUnsubscribe = useRef(null); // New ref for workout entries
+
+  // Helper function to safely parse nutrient values from Firestore entries
+  const parseNutrientValue = (nutrient) => {
+    if (!nutrient || typeof nutrient.value === "undefined" || nutrient.value === null) {
+      return 0;
+    }
+    const parsed = parseFloat(nutrient.value);
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  // Helper function to safely parse goal values from AI responses
+  const normalizeAiGoal = (value) => {
+    if (value === null || typeof value === "undefined") {
+      return 0;
+    }
+    const num = parseFloat(value);
+    return isNaN(num) ? 0 : num;
+  };
+
+  // New centralized function to calculate daily and weekly nutritional totals
+  const calculateNutritionTotals = (entries) => {
+    const daily = { calories: 0, protein: 0, fats: 0, sugars: 0 };
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (!Array.isArray(entries)) {
+      console.error("calculateNutritionTotals expects an array of entries.");
+      return { daily };
+    }
+
+    entries.forEach((entry) => {
+      const entryDate = new Date(entry.timestamp);
+
+      const calories = parseNutrientValue(entry.calories);
+      const protein = parseNutrientValue(entry.protein);
+      const fats = parseNutrientValue(entry.fats);
+      const sugars = parseNutrientValue(entry.sugars);
+
+      const nutrientsToSum = {
+        calories: calories,
+        protein: protein,
+        fats: fats,
+        sugars: sugars,
+      };
+
+      console.log(`Processing entry for ${entry.foodItem}:`, nutrientsToSum); // DEBUG
+
+      // Daily calculation
+      if (entryDate.toDateString() === today.toDateString()) {
+        Object.keys(daily).forEach(key => daily[key] += nutrientsToSum[key]);
+      }
+    });
+    return { daily };
+  };
 
   // --- START: Firebase Configuration (PASTE YOURS HERE) ---
   // IMPORTANT: This is where you paste the firebaseConfig object ONLY.
@@ -389,29 +450,43 @@ const calculateAge = (dateOfBirth) => {
     
     return age;
 };
-const setWeightLossGoals = async () => {
-    console.log("setWeightLossGoals called"); // DEBUG LOG
-    setTargetCalculationError("");
-    setCalculatingTargets(true);
-    setRecommendedDailyTargets({}); // Initialize as empty object
+
+const getNutritionalGoals = async (goalType) => {
+    // Goal-specific configuration
+    let setGoals, setGettingGoals, setGoalsError, notesSuffix;
+
+    switch (goalType) {
+        case 'loss':
+            setGoals = setRecommendedDailyTargets;
+            setGettingGoals = setCalculatingTargets;
+            setGoalsError = setTargetCalculationError;
+            notesSuffix = "for weight loss";
+            break;
+        case 'maintenance':
+            setGoals = setMaintenanceGoals;
+            setGettingGoals = setGettingMaintenanceGoals;
+            setGoalsError = setMaintenanceGoalsError;
+            notesSuffix = "for weight maintenance";
+            break;
+        case 'gain':
+            setGoals = setMuscleGainGoals;
+            setGettingGoals = setGettingMuscleGainGoals;
+            setGoalsError = setMuscleGainGoalsError;
+            notesSuffix = "for muscle gain";
+            break;
+        default:
+            console.error("Invalid goal type provided:", goalType);
+            return;
+    }
+
+    setGoalsError("");
+    setGettingGoals(true);
+    setGoals({});
 
     const currentWeightNum = parseFloat(weight) || 0;
     const heightNum = parseFloat(height) || 0;
     const ageNum = parseFloat(age) || 0;
     const genderType = gender;
-    const targetWeightNum = parseFloat(targetWeight) || 0;
-    const targetDateObj = targetDate ? new Date(targetDate) : null;
-    const currentDateObj = new Date();
-
-    console.log("setWeightLossGoals - Input values:", { // DEBUG LOG
-        currentWeightNum,
-        heightNum,
-        ageNum,
-        genderType,
-        targetWeightNum,
-        targetDateObj,
-        currentDateObj
-    });
 
     // Basic validation check
     if (
@@ -420,27 +495,36 @@ const setWeightLossGoals = async () => {
         isNaN(ageNum) || ageNum <= 0 ||
         !genderType
     ) {
-        setTargetCalculationError(
+        setGoalsError(
             "Please ensure valid positive numbers for current weight, height, and age, and select gender in the 'About Me' tab."
         );
-        setCalculatingTargets(false);
+        setGettingGoals(false);
         return;
     }
 
-    // Specific validation for weight loss
-    if (
-        isNaN(targetWeightNum) || targetWeightNum <= 0 ||
-        !targetDateObj || isNaN(targetDateObj.getTime()) ||
-        targetDateObj <= currentDateObj
-    ) {
-        setTargetCalculationError(
-            "For weight loss, please ensure a valid positive target weight and a future target date."
-        );
-        setCalculatingTargets(false);
-        return;
+    let prompt;
+    // Construct prompt based on goal
+    if (goalType === 'loss') {
+        const targetWeightNum = parseFloat(targetWeight) || 0;
+        const targetDateObj = targetDate ? new Date(targetDate) : null;
+        const currentDateObj = new Date();
+        if (
+            isNaN(targetWeightNum) || targetWeightNum <= 0 ||
+            !targetDateObj || isNaN(targetDateObj.getTime()) ||
+            targetDateObj <= currentDateObj
+        ) {
+            setGoalsError(
+                "For weight loss, please ensure a valid positive target weight and a future target date."
+            );
+            setGettingGoals(false);
+            return;
+        }
+        prompt = `For a ${ageNum}-year-old ${genderType} who weighs ${currentWeightNum}kg and is ${heightNum}cm tall, what are the recommended daily nutritional targets (calories, protein, fats, and sugars) for a healthy weight loss plan to reach a target weight of ${targetWeightNum}kg by ${targetDate}? The current date is ${currentDateObj.toDateString()}. Provide the response in JSON format according to this schema: { "recommendedCalories": "number", "recommendedProtein": "number", "recommendedFats": "number", "recommendedSugars": "number", "notes": "string" } Include a note explicitly stating this is general information and not personalized medical advice. For fats and sugars, provide maximum recommended daily intake.`;
+    } else if (goalType === 'maintenance') {
+        prompt = `For a ${ageNum}-year-old ${genderType} who weighs ${currentWeightNum}kg and is ${heightNum}cm tall, what are the recommended daily nutritional targets (calories, protein, fats, and sugars) for maintaining their current weight? Provide the response in JSON format according to this schema: { "recommendedCalories": "number", "recommendedProtein": "number", "recommendedFats": "number", "recommendedSugars": "number", "notes": "string" } Include a note explicitly stating this is general information and not personalized medical advice. For fats and sugars, provide maximum recommended daily intake.`;
+    } else { // 'gain'
+        prompt = `For a ${ageNum}-year-old ${genderType} who weighs ${currentWeightNum}kg and is ${heightNum}cm tall, what are the recommended daily nutritional targets (calories, protein, fats, and sugars) for muscle gain and building strength? Provide the response in JSON format according to this schema: { "recommendedCalories": "number", "recommendedProtein": "number", "recommendedFats": "number", "recommendedSugars": "number", "notes": "string" } Include a note explicitly stating this is general information and not personalized medical advice. For fats and sugars, provide maximum recommended daily intake.`;
     }
-
-    const prompt = `For a ${ageNum}-year-old ${genderType} who weighs ${currentWeightNum}kg and is ${heightNum}cm tall, what are the recommended daily nutritional targets (calories, protein, fats, sugars) for a healthy weight loss plan to reach a target weight of ${targetWeightNum}kg by ${targetDate}? The current date is ${currentDateObj.toDateString()}. Provide the response in JSON format according to this schema: { "recommendedCalories": "number", "recommendedProtein": "number", "recommendedFats": "number", "recommendedSugars": "number", "notes": "string" } Include a note explicitly stating this is general information and not personalized medical advice. For fats and sugars, provide maximum recommended daily intake.`;
 
     const payload = {
         contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -490,260 +574,54 @@ const setWeightLossGoals = async () => {
                 result.candidates[0].content.parts.length > 0
             ) {
                 const jsonText = result.candidates[0].content.parts[0].text;
-                console.log("API Response JSON text:", jsonText); // DEBUG LOG
-                
                 try {
                     const parsedJson = JSON.parse(jsonText);
-                    console.log("Parsed JSON:", parsedJson); // DEBUG LOG
-
-                    // The API now returns the correct format directly
-                    const normalizedTargets = {
-                        recommendedCalories: parsedJson.recommendedCalories || 0,
-                        recommendedProtein: parsedJson.recommendedProtein || 0,
-                        recommendedFats: parsedJson.recommendedFats || 0,
-                        recommendedSugars: parsedJson.recommendedSugars || 0,
-                        notes: parsedJson.notes || "AI generated for weight loss"
+                    const normalizedGoals = {
+                        recommendedCalories: normalizeAiGoal(parsedJson.recommendedCalories), // Directly from AI
+                        recommendedProtein: normalizeAiGoal(parsedJson.recommendedProtein),   // Directly from AI
+                        recommendedFats: normalizeAiGoal(parsedJson.recommendedFats),      // Directly from AI
+                        recommendedSugars: normalizeAiGoal(parsedJson.recommendedSugars),    // Directly from AI
+                        notes: parsedJson.notes || `AI generated ${notesSuffix}`
                     };
-
-                    console.log("Normalized targets:", normalizedTargets); // DEBUG LOG
-                    setRecommendedDailyTargets(normalizedTargets);
-                    // Save profile after setting the targets
+                    setGoals(normalizedGoals);
                     setTimeout(() => handleSaveProfile(), 100);
-                    break;
+                    setGettingGoals(false);
+                    return; // Exit on success
                 } catch (parseError) {
-                    console.error("Error parsing JSON response:", parseError); // DEBUG LOG
-                    setTargetCalculationError(
+                    console.error("Error parsing JSON response:", parseError);
+                    setGoalsError(
                         "Error parsing AI response. Please try again."
                     );
-                    break;
+                    setGettingGoals(false);
+                    return;
                 }
             } else {
-                console.log("Unexpected API response format:", result); // DEBUG LOG
-                setTargetCalculationError(
-                    "Could not get nutritional targets. Please try again."
+                setGoalsError(
+                    "Could not get nutritional goals due to unexpected API response. Please try again."
                 );
-                break;
+                setGettingGoals(false);
+                return; // Exit on format error
             }
         } catch (e) {
-            console.error(`Error calculating targets (attempt ${retryCount + 1}):`, e);
+            console.error(`Error getting nutritional goals (attempt ${retryCount + 1}):`, e);
+            retryCount++;
             if (retryCount < maxRetries - 1) {
                 const delay = initialDelay * Math.pow(2, retryCount);
                 await new Promise((res) => setTimeout(res, delay));
-                retryCount++;
             } else {
-                setTargetCalculationError(
-                    "Failed to calculate targets after multiple attempts. Please try again."
+                setGoalsError(
+                    "Failed to get nutritional goals after multiple attempts. Please try again."
                 );
+                setGettingGoals(false);
+                return; // Exit after final retry fails
             }
         }
     }
-    console.log("setWeightLossGoals completed, setting calculatingTargets to false"); // DEBUG LOG
-    setCalculatingTargets(false);
 };
 
-// Function to get maintenance daily goals
-const getMaintenanceDailyGoals = async () => {
-    setMaintenanceGoalsError("");
-    setGettingMaintenanceGoals(true);
-    setMaintenanceGoals({}); // Initialize as empty object
-
-    const currentWeightNum = parseFloat(weight) || 0;
-    const heightNum = parseFloat(height) || 0;
-    const ageNum = parseFloat(age) || 0;
-    const genderType = gender;
-
-    // Basic validation check
-    if (
-        isNaN(currentWeightNum) || currentWeightNum <= 0 ||
-        isNaN(heightNum) || heightNum <= 0 ||
-        isNaN(ageNum) || ageNum <= 0 ||
-        !genderType
-    ) {
-        setMaintenanceGoalsError(
-            "Please ensure valid positive numbers for current weight, height, and age, and select gender in the 'About Me' tab."
-        );
-        setGettingMaintenanceGoals(false);
-        return;
-    }
-
-    const prompt = `For a ${ageNum}-year-old ${genderType} who weighs ${currentWeightNum}kg and is ${heightNum}cm tall, what are the recommended daily nutritional targets (calories, protein, fats, sugars) for maintaining their current weight? Provide the response in JSON format according to this schema: { "recommendedCalories": "number", "recommendedProtein": "number", "recommendedFats": "number", "recommendedSugars": "number", "notes": "string" } Include a note explicitly stating this is general information and not personalized medical advice. For fats and sugars, provide maximum recommended daily intake.`;
-
-    const payload = {
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: "OBJECT",
-                properties: {
-                    recommendedCalories: { type: "NUMBER" },
-                    recommendedProtein: { type: "NUMBER" },
-                    recommendedFats: { type: "NUMBER" },
-                    recommendedSugars: { type: "NUMBER" },
-                    notes: { type: "STRING" },
-                },
-                required: ["recommendedCalories", "recommendedProtein", "recommendedFats", "recommendedSugars"],
-                propertyOrdering: ["recommendedCalories", "recommendedProtein", "recommendedFats", "recommendedSugars", "notes"],
-            },
-        },
-    };
-
-    const apiKey = "AIzaSyBS-Ht9jg81rG2nPhJkz2nBc29f-YuBO5M";
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
-    let retryCount = 0;
-    const maxRetries = 3;
-    const initialDelay = 1000;
-
-    while (retryCount < maxRetries) {
-        try {
-            const response = await fetch(apiUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const result = await response.json();
-
-            if (
-                result.candidates &&
-                result.candidates.length > 0 &&
-                result.candidates[0].content &&
-                result.candidates[0].content.parts &&
-                result.candidates[0].content.parts.length > 0
-            ) {
-                const jsonText = result.candidates[0].content.parts[0].text;
-                const parsedJson = JSON.parse(jsonText);
-                setMaintenanceGoals(parsedJson);
-                // Save profile after setting the goals
-                setTimeout(() => handleSaveProfile(), 100);
-                break;
-            } else {
-                setMaintenanceGoalsError(
-                    "Could not get maintenance goals. Please try again."
-                );
-                break;
-            }
-        } catch (e) {
-            console.error(`Error getting maintenance goals (attempt ${retryCount + 1}):`, e);
-            if (retryCount < maxRetries - 1) {
-                const delay = initialDelay * Math.pow(2, retryCount);
-                await new Promise((res) => setTimeout(res, delay));
-                retryCount++;
-            } else {
-                setMaintenanceGoalsError(
-                    "Failed to get maintenance goals after multiple attempts. Please try again."
-                );
-            }
-        }
-    }
-    setGettingMaintenanceGoals(false);
-};
-
-// Function to get muscle gain goals
-const getMuscleGainGoals = async () => {
-    setMuscleGainGoalsError("");
-    setGettingMuscleGainGoals(true);
-    setMuscleGainGoals({}); // Initialize as empty object
-
-    const currentWeightNum = parseFloat(weight) || 0;
-    const heightNum = parseFloat(height) || 0;
-    const ageNum = parseFloat(age) || 0;
-    const genderType = gender;
-
-    // Basic validation check
-    if (
-        isNaN(currentWeightNum) || currentWeightNum <= 0 ||
-        isNaN(heightNum) || heightNum <= 0 ||
-        isNaN(ageNum) || ageNum <= 0 ||
-        !genderType
-    ) {
-        setMuscleGainGoalsError(
-            "Please ensure valid positive numbers for current weight, height, and age, and select gender in the 'About Me' tab."
-        );
-        setGettingMuscleGainGoals(false);
-        return;
-    }
-
-    const prompt = `For a ${ageNum}-year-old ${genderType} who weighs ${currentWeightNum}kg and is ${heightNum}cm tall, what are the recommended daily nutritional targets (calories, protein, fats, sugars) for muscle gain and building strength? Provide the response in JSON format according to this schema: { "recommendedCalories": "number", "recommendedProtein": "number", "recommendedFats": "number", "recommendedSugars": "number", "notes": "string" } Include a note explicitly stating this is general information and not personalized medical advice. For fats and sugars, provide maximum recommended daily intake.`;
-
-    const payload = {
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: "OBJECT",
-                properties: {
-                    recommendedCalories: { type: "NUMBER" },
-                    recommendedProtein: { type: "NUMBER" },
-                    recommendedFats: { type: "NUMBER" },
-                    recommendedSugars: { type: "NUMBER" },
-                    notes: { type: "STRING" },
-                },
-                required: ["recommendedCalories", "recommendedProtein", "recommendedFats", "recommendedSugars"],
-                propertyOrdering: ["recommendedCalories", "recommendedProtein", "recommendedFats", "recommendedSugars", "notes"],
-            },
-        },
-    };
-
-    const apiKey = "AIzaSyBS-Ht9jg81rG2nPhJkz2nBc29f-YuBO5M";
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
-    let retryCount = 0;
-    const maxRetries = 3;
-    const initialDelay = 1000;
-
-    while (retryCount < maxRetries) {
-        try {
-            const response = await fetch(apiUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const result = await response.json();
-
-            if (
-                result.candidates &&
-                result.candidates.length > 0 &&
-                result.candidates[0].content &&
-                result.candidates[0].content.parts &&
-                result.candidates[0].content.parts.length > 0
-            ) {
-                const jsonText = result.candidates[0].content.parts[0].text;
-                const parsedJson = JSON.parse(jsonText);
-                setMuscleGainGoals(parsedJson);
-                // Save profile after setting the goals
-                setTimeout(() => handleSaveProfile(), 100);
-                break;
-            } else {
-                setMuscleGainGoalsError(
-                    "Could not get muscle gain goals. Please try again."
-                );
-                break;
-            }
-        } catch (e) {
-            console.error(`Error getting muscle gain goals (attempt ${retryCount + 1}):`, e);
-            if (retryCount < maxRetries - 1) {
-                const delay = initialDelay * Math.pow(2, retryCount);
-                await new Promise((res) => setTimeout(res, delay));
-                retryCount++;
-            } else {
-                setMuscleGainGoalsError(
-                    "Failed to get muscle gain goals after multiple attempts. Please try again."
-                );
-            }
-        }
-    }
-    setGettingMuscleGainGoals(false);
-};
+const setWeightLossGoals = () => getNutritionalGoals('loss');
+const getMaintenanceDailyGoals = () => getNutritionalGoals('maintenance');
+const getMuscleGainGoals = () => getNutritionalGoals('gain');
 
 // Initialize Firebase and Auth. Runs once on mount.
 useEffect(() => {
@@ -801,7 +679,7 @@ useEffect(() => {
             setSuggestedWeightRange({}); // Reset to empty object
             setMaintenanceGoals({}); // Reset maintenance goals on logout
             setFoodEntries([]);
-            setDailyTotals({ calories: 0, protein: 0, fats: 0, sugars: 0 });
+            setDailyTotals({ calories: 0, protein: 0, fats: 0, sugars: 0, carbs: 0 });
             setNutritionalInfo(null); // Clear last analysis result on logout
 
             // Reset theme mode to default light mode on logout
@@ -962,35 +840,22 @@ useEffect(() => {
       foodEntriesUnsubscribe.current = onSnapshot(
         query(foodEntriesColRef),
         (snapshot) => {
-          let currentDayTotals = {
-            calories: 0,
-            protein: 0,
-            fats: 0,
-            sugars: 0,
-          };
           const fetchedEntries = [];
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
 
           snapshot.forEach((doc) => {
             const entry = doc.data();
-            const entryDate = new Date(entry.timestamp);
-            // Only add to daily totals if it's for today
-            if (entryDate.toDateString() === today.toDateString()) {
-              currentDayTotals.calories += entry.calories?.value || 0;
-              currentDayTotals.protein += entry.protein?.value || 0;
-              currentDayTotals.fats += entry.fats?.value || 0;
-              currentDayTotals.sugars += entry.sugars?.value || 0;
-            }
             fetchedEntries.push({ id: doc.id, ...entry });
           });
           console.log("Food entries loaded from Firestore:", fetchedEntries); // DEBUG LOG
-          setFoodEntries(
-            fetchedEntries.sort(
-              (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
-            )
+          const sortedEntries = fetchedEntries.sort(
+            (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
           );
-          setDailyTotals(currentDayTotals);
+          setFoodEntries(sortedEntries);
+
+          // Use the new centralized function to calculate totals
+          const { daily: newDailyTotals } =
+            calculateNutritionTotals(sortedEntries);
+          setDailyTotals(newDailyTotals);
         },
         (error) => {
           console.error("Error fetching food entries:", error);
@@ -1306,7 +1171,7 @@ useEffect(() => {
     }
   };
 
-  const analyzeFood = async () => {
+const analyzeFood = async () => {
     setError("");
     setLoading(true);
     setNutritionalInfo(null); // Clear previous analysis result
@@ -1325,11 +1190,9 @@ useEffect(() => {
       return;
     }
 
-    let chatHistory = [];
-    const prompt = `Please analyze this food item. Based on the description: "${foodDescription}", and the image if provided, provide an estimate for the following nutritional values per serving in grams or calories (use calories for energy, grams for protein, fats, sugars), and include a confidence level for each estimate ("high", "medium", "low"). Provide the response in JSON format according to this schema: { "foodItem": "string", "calories": { "value": "number", "unit": "string", "confidence": "string" }, "protein": { "value": "number", "unit": "string", "confidence": "string" }, "fats": { "value": "number", "unit": "string", "confidence": "string" }, "sugars": { "value": "number", "unit": "string", "confidence": "string" } }`;
+    const prompt = `Please analyze this food item. Based on the description: "${foodDescription}", and the image if provided, provide an estimate for the following nutritional values per serving in grams or calories (use calories for energy, grams for protein, fats, and sugars), and include a confidence level for each estimate ("high", "medium", "low"). Provide the response in JSON format according to this schema: { "foodItem": "string", "calories": { "value": "number", "unit": "string", "confidence": "string" }, "protein": { "value": "number", "unit": "string", "confidence": "string" }, "fats": { "value": "number", "unit": "string", "confidence": "string" }, "sugars": { "value": "number", "unit": "string", "confidence": "string" } }`;
 
     const parts = [{ text: prompt }];
-    console.log("foodImage=>", foodImage);
     if (foodImage) {
       try {
         const base64ImageData = await fileToBase64(foodImage);
@@ -1349,10 +1212,8 @@ useEffect(() => {
       }
     }
 
-    chatHistory.push({ role: "user", parts: parts });
-
     const payload = {
-      contents: chatHistory,
+      contents: [{ role: "user", parts: parts }],
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -1392,7 +1253,7 @@ useEffect(() => {
               },
             },
           },
-          required: ["foodItem", "calories", "protein", "fats", "sugars"],
+           required: ["foodItem", "calories", "protein", "fats", "sugars"],
           propertyOrdering: [
             "foodItem",
             "calories",
@@ -1410,8 +1271,9 @@ useEffect(() => {
     let retryCount = 0;
     const maxRetries = 3;
     const initialDelay = 1000;
+    let success = false;
 
-    while (retryCount < maxRetries) {
+    while (retryCount < maxRetries && !success) {
       try {
         const response = await fetch(apiUrl, {
           method: "POST",
@@ -1435,6 +1297,9 @@ useEffect(() => {
           // Corrected access here
           const jsonText = result.candidates[0].content.parts[0].text;
           const parsedJson = JSON.parse(jsonText);
+
+          console.log("AI Parsed JSON for Nutritional Info:", parsedJson); // DEBUG
+
           setNutritionalInfo(parsedJson); // Set analysis result
 
           const appId = "default-app-id"; // FIXED: Use a constant string for appId
@@ -1452,75 +1317,38 @@ useEffect(() => {
           setFoodImagePreview("");
           setMealType("Breakfast");
           setSelectedTab("tracking"); // <<< THIS LINE WILL ENSURE TAB SWITCH >>>
-          break; // Exit loop on success
+          success = true; // Mark as success to exit loop
         } else {
-          setError("Could not get nutritional info. Please try again.");
-          break; // Exit loop on unexpected format
+          throw new Error("Could not get nutritional info. Please try again.");
+        }
+      } catch (e) {
+        console.error(`Error analyzing food (attempt ${retryCount + 1}):`, e);
+        retryCount++;
+        if (retryCount >= maxRetries) {
+          setError(`Failed to analyze food after ${maxRetries} attempts. ${e.message}`);
+        } else {
+          const delay = initialDelay * Math.pow(2, retryCount - 1);
+          await new Promise(res => setTimeout(res, delay));
         }
       } finally {
-        setLoading(false);
       }
     }
+    setLoading(false); // Set loading to false AFTER the loop completes
   };
-
-  const calculateWeeklyTotals = () => {
-    const weeklyEntries = foodEntries;
-    let weeklyCals = 0;
-    let weeklyProt = 0;
-    let weeklyFats = 0;
-    let weeklySugars = 0;
-
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    oneWeekAgo.setHours(0, 0, 0, 0);
-
-    weeklyEntries.forEach((entry) => {
-      const entryDate = new Date(entry.timestamp);
-      if (entryDate >= oneWeekAgo) {
-        weeklyCals += entry.calories?.value || 0;
-        weeklyProt += entry.protein?.value || 0;
-        weeklyFats += entry.fats?.value || 0;
-        weeklySugars += entry.sugars?.value || 0;
-      }
-    });
-
-    return {
-      calories: weeklyCals,
-      protein: weeklyProt,
-      fats: weeklyFats,
-      sugars: weeklySugars,
-    };
-  };
-
-  const weeklyTotals = calculateWeeklyTotals();
 
   const dailyChartData = [
-    { name: "Calories", value: dailyTotals.calories },
     { name: "Protein", value: dailyTotals.protein },
     { name: "Fats", value: dailyTotals.fats },
-    { name: "Sugars", value: dailyTotals.sugars },
   ];
 
   const dailyPieChartData = [
-    { name: "Protein", value: dailyTotals.protein },
-    { name: "Fats", value: dailyTotals.fats },
-    { name: "Sugars", value: dailyTotals.sugars },
+    { name: "Protein", value: dailyTotals.protein * 4, grams: dailyTotals.protein },
+    { name: "Fats", value: dailyTotals.fats * 9, grams: dailyTotals.fats },
   ];
 
-  const weeklyChartData = [
-    { name: "Calories", value: weeklyTotals.calories },
-    { name: "Protein", value: weeklyTotals.protein },
-    { name: "Fats", value: weeklyTotals.fats },
-    { name: "Sugars", value: weeklyTotals.sugars },
-  ];
+  const totalDailyMacroCalories = dailyTotals.protein * 4 + dailyTotals.fats * 9;
 
-  const weeklyPieChartData = [
-    { name: "Protein", value: weeklyTotals.protein },
-    { name: "Fats", value: weeklyTotals.fats },
-    { name: "Sugars", value: weeklyTotals.sugars },
-  ];
-
-  const PIE_COLORS = ["#8884d8", "#82ca9d", "#ffc658"];
+  const PIE_COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff7300"];
 
   // Age and BMI calculation useEffect
   useEffect(() => {
@@ -1658,201 +1486,6 @@ useEffect(() => {
     }
   };
 
-  const getDailyNutritionalTargets = async () => {
-    setTargetCalculationError("");
-    setCalculatingTargets(true);
-    setRecommendedDailyTargets({}); // Initialize as empty object
-
-    const currentWeightNum = parseFloat(weight) || 0;
-    const targetWeightNum = parseFloat(targetWeight) || 0;
-    const heightNum = parseFloat(height) || 0;
-    const ageNum = parseFloat(age) || 0;
-
-    const targetDateObj = targetDate ? new Date(targetDate) : null;
-    const currentDateObj = new Date();
-
-    console.log("getDailyNutritionalTargets - Input values for validation:"); // DEBUG LOG
-    console.log("  currentWeightNum:", currentWeightNum);
-    console.log("  targetWeightNum:", targetWeightNum);
-    console.log("  heightNum:", heightNum);
-    console.log("  ageNum:", ageNum);
-    console.log("  gender:", gender);
-    console.log("  targetDateObj:", targetDateObj);
-    console.log("  currentDateObj:", currentDateObj);
-
-    if (
-      isNaN(currentWeightNum) ||
-      currentWeightNum <= 0 ||
-      isNaN(targetWeightNum) ||
-      targetWeightNum <= 0 ||
-      !targetDateObj ||
-      isNaN(targetDateObj.getTime()) ||
-      targetDateObj <= currentDateObj ||
-      isNaN(heightNum) ||
-      heightNum <= 0 ||
-      isNaN(ageNum) ||
-      ageNum <= 0 ||
-      !gender
-    ) {
-      const validationMessage =
-        "Please ensure valid positive numbers for current weight, target weight, height, and age, a future target date, and select gender.";
-      setTargetCalculationError(validationMessage);
-      console.log(
-        "Validation failed in getDailyNutritionalTargets:",
-        validationMessage
-      ); // DEBUG LOG
-      setCalculatingTargets(false);
-      return;
-    }
-
-    const timeDiff = targetDateObj.getTime() - currentDateObj.getTime();
-    const daysDiff = timeDiff / (1000 * 60 * 60 * 24);
-    const monthsDiff = daysDiff / 30.44;
-
-    const prompt = `What are typical daily intake targets for calories (kcal), protein (g), fats (g), and sugars (g) for an individual aiming to lose weight from ${currentWeightNum} kg to ${targetWeightNum} kg over a period of approximately ${monthsDiff.toFixed(
-      1
-    )} months, given they are ${heightNum} cm tall, ${ageNum} years old, and ${gender}? Provide the response in JSON format according to this schema: { "recommendedCalories": "number", "recommendedProtein": "number", "recommendedFats": "number", "recommendedSugars": "number", "notes": "string" } Include a note explicitly stating this is general information and not personalized medical advice. For fats and sugars, provide maximum recommended daily intake.`;
-
-    const payload = {
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: "OBJECT",
-          properties: {
-            recommendedCalories: { type: "NUMBER" },
-            recommendedProtein: { type: "NUMBER" },
-            recommendedFats: { type: "NUMBER" },
-            recommendedSugars: { type: "NUMBER" },
-            notes: { type: "STRING" },
-          },
-          required: [
-            "recommendedCalories",
-            "recommendedProtein",
-            "recommendedFats",
-            "recommendedSugars",
-          ],
-          propertyOrdering: [
-            "recommendedCalories",
-            "recommendedProtein",
-            "recommendedFats",
-            "recommendedSugars",
-            "notes",
-          ],
-        },
-      },
-    };
-
-    const apiKey = "AIzaSyBS-Ht9jg81rG2nPhJkz2nBc29f-YuBO5M";
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
-    let retryCount = 0;
-    const maxRetries = 3;
-    const initialDelay = 1000;
-
-    while (retryCount < maxRetries) {
-      try {
-        const response = await fetch(apiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        if (
-          result.candidates &&
-          result.candidates.length > 0 &&
-          result.candidates[0].content &&
-          result.candidates[0].content.parts &&
-          result.candidates[0].content.parts.length > 0
-        ) {
-          const jsonText = result.candidates[0].content.parts[0].text;
-          const parsedJson = JSON.parse(jsonText);
-          setRecommendedDailyTargets(parsedJson);
-          handleSaveProfile();
-          break;
-        } else {
-          setTargetCalculationError(
-            "Could not get nutritional targets. Please try again."
-          );
-          break;
-        }
-      } catch (e) {
-        console.error(
-          `Error calculating targets (attempt ${retryCount + 1}):`,
-          e
-        );
-        if (retryCount < maxRetries - 1) {
-          const delay = initialDelay * Math.pow(2, retryCount);
-          await new Promise((res) => setTimeout(res, delay));
-        } else {
-          setTargetCalculationError(
-            "Failed to calculate targets after multiple attempts. Please try again."
-          );
-        }
-      } finally {
-        retryCount++;
-      }
-    }
-    setCalculatingTargets(false);
-  };
-
-  const callGenerativeModel = async (payload) => {
-    const apiKey = "AIzaSyBS-Ht9jg81rG2nPhJkz2nBc29f-YuBO5M";
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
-    let retryCount = 0;
-    const maxRetries = 3;
-    const initialDelay = 1000;
-
-    while (retryCount < maxRetries) {
-      try {
-        const response = await fetch(apiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) {
-          const errorBody = await response.text();
-          console.error(
-            `HTTP error! status: ${response.status}, body: ${errorBody}`
-          );
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        if (
-          result.candidates &&
-          result.candidates.length > 0 &&
-          result.candidates[0].content &&
-          result.candidates[0].content.parts &&
-          result.candidates[0].content.parts.length > 0
-        ) {
-          const jsonText = result.candidates[0].content.parts[0].text;
-          const parsedJson = JSON.parse(jsonText);
-          setMuscleGainGoals(parsedJson);
-          handleSaveProfile(); // Save the new muscle gain goals
-          break;
-        } else {
-          setMuscleGainGoalsError(
-            "Could not get muscle gain goals. Please try again."
-          );
-          setMuscleGainGoals({});
-          break;
-        }
-      } finally {
-        setGettingMuscleGainGoals(false);
-      }
-    }
-  };
-
   // Monthly Weight Change Calculation useEffect (Improved robustness)
   useEffect(() => {
     let calculatedChange = null;
@@ -1958,51 +1591,140 @@ useEffect(() => {
   const addWorkout = async () => {
     setWorkoutError("");
     setAddingWorkout(true);
-    console.log("addWorkout called. Values:", {
-      workoutType,
-      workoutDuration,
-      workoutNotes,
-      workoutDate,
-      userId,
-      db,
-    }); // DEBUG LOG
 
-    if (!workoutType || !workoutDuration || !workoutDate || !userId || !db) {
+    const durationNum = parseFloat(workoutDuration) || 0;
+    const setsNum = parseInt(workoutSets, 10) || 0;
+    const repsNum = parseInt(workoutReps, 10) || 0;
+
+    if (
+      !workoutType ||
+      (durationNum <= 0 && (setsNum <= 0 || repsNum <= 0)) ||
+      !workoutDate ||
+      !userId ||
+      !db
+    ) {
       setWorkoutError(
-        "Please fill in workout type, duration, and date. Ensure you are logged in."
+        "Please fill in workout type, date, and either duration OR sets & reps. Ensure you are logged in."
       );
       setAddingWorkout(false);
       return;
     }
 
-    try {
-      const appId = "default-app-id"; // FIXED: Use a constant string for appId
-      const workoutColRef = collection(
-        db,
-        `artifacts/${appId}/users/${userId}/workoutEntries`
+    // Basic validation for user profile data
+    const currentWeightNum = parseFloat(weight) || 0;
+    const heightNum = parseFloat(height) || 0;
+    const ageNum = parseFloat(age) || 0;
+
+    if (currentWeightNum <= 0 || heightNum <= 0 || ageNum <= 0 || !gender) {
+      setWorkoutError(
+        "Please ensure your weight, height, age, and gender are set in the 'About Me' tab for accurate calorie estimation."
       );
-
-      const newWorkout = {
-        workoutType,
-        workoutDuration: parseFloat(workoutDuration) || 0,
-        workoutNotes,
-        workoutDate,
-        timestamp: new Date().toISOString(),
-      };
-      console.log("Attempting to add workout to Firestore:", newWorkout); // DEBUG LOG
-      await addDoc(workoutColRef, newWorkout);
-
-      setWorkoutType("");
-      setWorkoutDuration("");
-      setWorkoutNotes("");
-      setWorkoutDate("");
-      setWorkoutError("");
-      console.log("Workout added successfully."); // DEBUG LOG
-    } catch (e) {
-      console.error("Error adding workout:", e); // DEBUG LOG
-      setWorkoutError(`Failed to add workout: ${e.message}`);
-    } finally {
       setAddingWorkout(false);
+      return;
+    }
+
+    let workoutDetails = "";
+    if (setsNum > 0 && repsNum > 0) {
+      workoutDetails = `performing ${setsNum} sets of ${repsNum} reps of "${workoutType}"`;
+      if (durationNum > 0) {
+        workoutDetails += ` over a period of ${durationNum} minutes`;
+      }
+    } else {
+      workoutDetails = `a ${durationNum} minute workout of type "${workoutType}"`;
+    }
+
+    const prompt = `Based on a ${gender} who is ${ageNum} years old, weighs ${currentWeightNum} kg, and is ${heightNum} cm tall, estimate the calories burned for ${workoutDetails}. Provide the response in JSON format with a single key "caloriesBurned" which is a number.`;
+
+    const payload = {
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "OBJECT",
+          properties: {
+            caloriesBurned: { type: "NUMBER" },
+          },
+          required: ["caloriesBurned"],
+        },
+      },
+    };
+
+    const apiKey = "AIzaSyBS-Ht9jg81rG2nPhJkz2nBc29f-YuBO5M";
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+    let retryCount = 0;
+    const maxRetries = 3;
+    const initialDelay = 1000;
+
+    while (retryCount < maxRetries) {
+      try {
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        let caloriesBurned = 0;
+
+        if (
+          result.candidates &&
+          result.candidates.length > 0 &&
+          result.candidates[0].content &&
+          result.candidates[0].content.parts &&
+          result.candidates[0].content.parts.length > 0
+        ) {
+          const jsonText = result.candidates[0].content.parts[0].text;
+          const parsedJson = JSON.parse(jsonText);
+          caloriesBurned = parseFloat(parsedJson.caloriesBurned) || 0;
+        } else {
+          throw new Error("Could not get calorie estimation from AI.");
+        }
+
+        const appId = "default-app-id";
+        const workoutColRef = collection(
+          db,
+          `artifacts/${appId}/users/${userId}/workoutEntries`
+        );
+
+        const newWorkout = {
+          workoutType,
+          workoutDuration: parseFloat(workoutDuration) || 0,
+          workoutSets: parseInt(workoutSets, 10) || 0,
+          workoutReps: parseInt(workoutReps, 10) || 0,
+          workoutNotes,
+          workoutDate,
+          caloriesBurned, // Add the estimated calories
+          timestamp: new Date().toISOString(),
+        };
+
+        await addDoc(workoutColRef, newWorkout);
+
+        // Reset form
+        setWorkoutType("");
+        setWorkoutDuration("");
+        setWorkoutSets("");
+        setWorkoutReps("");
+        setWorkoutNotes("");
+        setWorkoutDate("");
+        setWorkoutError("");
+        setAddingWorkout(false);
+        return; // Exit on success
+      } catch (e) {
+        console.error(`Error adding workout (attempt ${retryCount + 1}):`, e);
+        retryCount++;
+        if (retryCount >= maxRetries) {
+          setWorkoutError(`Failed to add workout: ${e.message}`);
+          setAddingWorkout(false);
+        } else {
+          const delay = initialDelay * Math.pow(2, retryCount - 1);
+          await new Promise((res) => setTimeout(res, delay));
+        }
+      }
     }
   };
 
@@ -2039,6 +1761,8 @@ useEffect(() => {
         1
       )} g, Sugars Max ${recommendedDailyTargets.recommendedSugars?.toFixed(
         1
+      )} g, Carbs ${recommendedDailyTargets.recommendedCarbs?.toFixed(
+        1
       )} g.`;
       currentGoals = recommendedDailyTargets;
     } else if (
@@ -2051,7 +1775,7 @@ useEffect(() => {
         1
       )} g, Fats Max ${maintenanceGoals.recommendedFats?.toFixed(
         1
-      )} g, Sugars Max ${maintenanceGoals.recommendedSugars?.toFixed(1)} g.`;
+      )} g, Sugars Max ${maintenanceGoals.recommendedSugars?.toFixed(1)} g, Carbs ${maintenanceGoals.recommendedCarbs?.toFixed(1)} g.`;
       currentGoals = maintenanceGoals;
     } else if (
       targetOption === "muscleGain" &&
@@ -2063,7 +1787,7 @@ useEffect(() => {
         1
       )} g, Fats Max ${muscleGainGoals.recommendedFats?.toFixed(
         1
-      )} g, Sugars Max ${muscleGainGoals.recommendedSugars?.toFixed(1)} g.`;
+      )} g, Sugars Max ${muscleGainGoals.recommendedSugars?.toFixed(1)} g, Carbs ${muscleGainGoals.recommendedCarbs?.toFixed(1)} g.`;
       currentGoals = muscleGainGoals;
     } else {
       dietContext = `You have not set specific AI-recommended daily nutrition targets for your fitness goals.`;
@@ -2392,7 +2116,6 @@ useEffect(() => {
             onClick={() => {
               setSelectedTab("tracking");
               setDailyDisplayMode("numbers");
-              setWeeklyDisplayMode("numbers");
             }}
           >
             Tracking
@@ -2676,8 +2399,7 @@ useEffect(() => {
                         >
                           Calories:
                         </strong>{" "}
-                        {nutritionalInfo.calories?.value || 0}{" "}
-                        {nutritionalInfo.calories?.unit || "kcal"}{" "}
+                        {parseNutrientValue(nutritionalInfo.calories).toFixed(1)} {nutritionalInfo.calories?.unit || "kcal"}{" "}
                         <span
                           className={`text-xs ml-1 px-1 py-0.5 rounded-full ${
                             nutritionalInfo.calories?.confidence === "high"
@@ -2703,8 +2425,7 @@ useEffect(() => {
                         >
                           Protein:
                         </strong>{" "}
-                        {nutritionalInfo.protein?.value || 0}{" "}
-                        {nutritionalInfo.protein?.unit || "g"}{" "}
+                        {parseNutrientValue(nutritionalInfo.protein).toFixed(1)} {nutritionalInfo.protein?.unit || "g"}{" "}
                         <span
                           className={`text-xs ml-1 px-1 py-0.5 rounded-full ${
                             nutritionalInfo.protein?.confidence === "high"
@@ -2729,8 +2450,7 @@ useEffect(() => {
                         >
                           Fats:
                         </strong>{" "}
-                        {nutritionalInfo.fats?.value || 0}{" "}
-                        {nutritionalInfo.fats?.unit || "g"}{" "}
+                        {parseNutrientValue(nutritionalInfo.fats).toFixed(1)} {nutritionalInfo.fats?.unit || "g"}{" "}
                         <span
                           className={`text-xs ml-1 px-1 py-0.5 rounded-full ${
                             nutritionalInfo.fats?.confidence === "high"
@@ -2755,8 +2475,7 @@ useEffect(() => {
                         >
                           Sugars:
                         </strong>{" "}
-                        {nutritionalInfo.sugars?.value || 0}{" "}
-                        {nutritionalInfo.sugars?.unit || "g"}{" "}
+                        {parseNutrientValue(nutritionalInfo.sugars).toFixed(1)} {nutritionalInfo.sugars?.unit || "g"}{" "}
                         <span
                           className={`text-xs ml-1 px-1 py-0.5 rounded-full ${
                             nutritionalInfo.sugars?.confidence === "high"
@@ -2769,6 +2488,9 @@ useEffect(() => {
                           ({nutritionalInfo.sugars?.confidence || "N/A"})
                         </span>
                       </p>
+                      <p
+                        className={`${isDarkMode ? "text-gray-200" : "text-gray-800"}`}
+                      ></p>
                     </div>
                   </div>
                 )}
@@ -3019,9 +2741,9 @@ useEffect(() => {
                       isDarkMode ? "bg-gray-600" : "bg-blue-50"
                     } p-3 sm:p-4 rounded-xl shadow-md h-48 sm:h-64 flex justify-center items-center`}
                   >
-                    {dailyTotals.protein === 0 &&
-                    dailyTotals.fats === 0 &&
-                    dailyTotals.sugars === 0 ? (
+                                            {dailyTotals.protein === 0 &&
+                        dailyTotals.fats === 0 &&
+                        dailyTotals.sugars === 0 ? (
                       <p
                         className={`${
                           isDarkMode ? "text-blue-200" : "text-blue-800"
@@ -3051,8 +2773,10 @@ useEffect(() => {
                             ))}
                           </Pie>
                           <Tooltip
-                            formatter={(value, name) => [
-                              `${value.toFixed(1)} g`,
+                            formatter={(value, name, props) => [
+                              `${props.payload.grams.toFixed(1)} g (${
+                                totalDailyMacroCalories > 0 ? ((value / totalDailyMacroCalories) * 100).toFixed(0) : 0
+                              }%)`,
                               name,
                             ]}
                             contentStyle={{
@@ -3156,249 +2880,124 @@ useEffect(() => {
                   </div>
                 )}
 
+                {/* History Section */}
                 <h2
                   className={`text-xl sm:text-2xl font-bold ${
                     isDarkMode ? "text-blue-300" : "text-blue-700"
                   } mt-6 sm:mt-8 mb-3 sm:mb-4`}
                 >
-                  Weekly Nutrition
+                  History
                 </h2>
-
-                <div className="flex justify-center mb-4 sm:mb-6">
-                  <button
-                    className={`py-1 px-3 sm:py-2 sm:px-4 rounded-l-lg text-sm sm:text-base ${
-                      weeklyDisplayMode === "numbers"
-                        ? isDarkMode
-                          ? "bg-blue-700 hover:bg-blue-800 text-white"
-                          : "bg-blue-600 hover:bg-blue-700 text-white"
-                        : isDarkMode
-                        ? "bg-blue-400 text-blue-900 hover:bg-blue-500"
-                        : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                    }`}
-                    onClick={() => setWeeklyDisplayMode("numbers")}
+                <div className="mb-4">
+                  <label
+                    htmlFor="historyDate"
+                    className={`block text-sm font-medium ${themeClasses.mediumText} mb-1 sm:mb-2`}
                   >
-                    Numbers
-                  </button>
-                  <button
-                    className={`py-1 px-3 sm:py-2 sm:px-4 text-sm sm:text-base ${
-                      weeklyDisplayMode === "barChart"
-                        ? isDarkMode
-                          ? "bg-blue-700 hover:bg-blue-800 text-white"
-                          : "bg-blue-600 hover:bg-blue-700 text-white"
-                        : isDarkMode
-                        ? "bg-blue-400 text-blue-900 hover:bg-blue-500"
-                        : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                    }`}
-                    onClick={() => setWeeklyDisplayMode("barChart")}
-                  >
-                    Bar Graph
-                  </button>
-                  <button
-                    className={`py-1 px-3 sm:py-2 sm:px-4 rounded-r-lg text-sm sm:text-base ${
-                      weeklyDisplayMode === "pieChart"
-                        ? isDarkMode
-                          ? "bg-blue-700 hover:bg-blue-800 text-white"
-                          : "bg-blue-600 hover:bg-blue-700 text-white"
-                        : isDarkMode
-                        ? "bg-blue-400 text-blue-900 hover:bg-blue-500"
-                        : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                    }`}
-                    onClick={() => setWeeklyDisplayMode("pieChart")}
-                  >
-                    Pie Chart
-                  </button>
+                    Select a date to view:
+                  </label>
+                  <input
+                    id="historyDate"
+                    type="date"
+                    className={`w-full p-2 sm:p-3 bg-[var(--app-card-bg)] border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm sm:text-base text-[var(--app-normal-text)]`}
+                    value={historyDate}
+                    onChange={(e) => setHistoryDate(e.target.value)}
+                  />
                 </div>
 
-                {weeklyDisplayMode === "numbers" && (
-                  <div
-                    className={`${
-                      isDarkMode ? "bg-gray-600" : "bg-blue-50"
-                    } p-3 sm:p-4 rounded-xl shadow-md grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-center`}
-                  >
-                    <div>
-                      <p
-                        className={`text-xs sm:text-sm font-medium ${
-                          isDarkMode ? "text-blue-200" : "text-blue-800"
-                        }`}
-                      >
-                        Calories
-                      </p>
-                      <p
-                        className={`text-lg sm:text-xl font-bold ${
-                          isDarkMode ? "text-blue-100" : "text-blue-900"
-                        }`}
-                      >
-                        {weeklyTotals.calories.toFixed(1)} kcal
-                      </p>
+                {historyEntries.length > 0 ? (
+                  <>
+                    <div
+                      className={`p-3 sm:p-4 rounded-xl shadow-md grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-center mb-4 ${
+                        isDarkMode ? "bg-gray-600" : "bg-blue-50"
+                      }`}
+                    >
+                      {/* Display historyTotals */}
+                      <div>
+                        <p className={`text-xs sm:text-sm font-medium ${isDarkMode ? "text-blue-200" : "text-blue-800"}`}>Calories</p>
+                        <p className={`text-lg sm:text-xl font-bold ${isDarkMode ? "text-blue-100" : "text-blue-900"}`}>{historyTotals.calories.toFixed(1)} kcal</p>
+                      </div>
+                      <div>
+                        <p className={`text-xs sm:text-sm font-medium ${isDarkMode ? "text-blue-200" : "text-blue-800"}`}>Protein</p>
+                        <p className={`text-lg sm:text-xl font-bold ${isDarkMode ? "text-blue-100" : "text-blue-900"}`}>{historyTotals.protein.toFixed(1)} g</p>
+                      </div>
+                      <div>
+                        <p className={`text-xs sm:text-sm font-medium ${isDarkMode ? "text-blue-200" : "text-blue-800"}`}>Fats</p>
+                        <p className={`text-lg sm:text-xl font-bold ${isDarkMode ? "text-blue-100" : "text-blue-900"}`}>{historyTotals.fats.toFixed(1)} g</p>
+                      </div>
+                      <div>
+                        <p className={`text-xs sm:text-sm font-medium ${isDarkMode ? "text-blue-200" : "text-blue-800"}`}>Sugars</p>
+                        <p className={`text-lg sm:text-xl font-bold ${isDarkMode ? "text-blue-100" : "text-blue-900"}`}>{historyTotals.sugars.toFixed(1)} g</p>
+                      </div>
                     </div>
-                    <div>
-                      <p
-                        className={`text-xs sm:text-sm font-medium ${
-                          isDarkMode ? "text-blue-200" : "text-blue-800"
-                        }`}
-                      >
-                        Protein
-                      </p>
-                      <p
-                        className={`text-lg sm:text-xl font-bold ${
-                          isDarkMode ? "text-blue-100" : "text-blue-900"
-                        }`}
-                      >
-                        {weeklyTotals.protein.toFixed(1)} g
-                      </p>
-                    </div>
-                    <div>
-                      <p
-                        className={`text-xs sm:text-sm font-medium ${
-                          isDarkMode ? "text-blue-200" : "text-blue-800"
-                        }`}
-                      >
-                        Fats
-                      </p>
-                      <p
-                        className={`text-lg sm:text-xl font-bold ${
-                          isDarkMode ? "text-blue-100" : "text-blue-900"
-                        }`}
-                      >
-                        {weeklyTotals.fats.toFixed(1)} g
-                      </p>
-                    </div>
-                    <div>
-                      <p
-                        className={`text-xs sm:text-sm font-medium ${
-                          isDarkMode ? "text-blue-200" : "text-blue-800"
-                        }`}
-                      >
-                        Sugars
-                      </p>
-                      <p
-                        className={`text-lg sm:text-xl font-bold ${
-                          isDarkMode ? "text-blue-100" : "text-blue-900"
-                        }`}
-                      >
-                        {weeklyTotals.sugars.toFixed(1)} g
-                      </p>
-                    </div>
-                  </div>
-                )}
 
-                {weeklyDisplayMode === "barChart" && (
-                  <div
-                    className={`${
-                      isDarkMode ? "bg-gray-600" : "bg-blue-50"
-                    } p-3 sm:p-4 rounded-xl shadow-md h-48 sm:h-64`}
-                  >
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={weeklyChartData}
-                        margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
-                      >
-                        <XAxis
-                          dataKey="name"
-                          stroke={isDarkMode ? "#e5e7eb" : "#374151"}
-                        />
-                        <YAxis stroke={isDarkMode ? "#e5e7eb" : "#374151"} />
-                        <Tooltip
-                          formatter={(value, name, props) => [
-                            `${value.toFixed(1)} ${
-                              name === "Calories" ? "kcal" : "g"
-                            }`,
-                            name,
-                          ]}
-                          contentStyle={{
-                            backgroundColor: isDarkMode ? "#374151" : "#fff",
-                            border: isDarkMode
-                              ? "1px solid #4b5563"
-                              : "1px solid #ccc",
-                            borderRadius: "8px",
-                            padding: "10px",
-                          }}
-                          labelStyle={{
-                            fontWeight: "bold",
-                            color: isDarkMode ? "#93c5fd" : "#1d4ed8",
-                          }}
-                        />
-                        <Legend />
-                        <Bar
-                          dataKey="value"
-                          fill={isDarkMode ? "#60a5fa" : "#3b82f6"}
-                          name="Amount"
-                          radius={[5, 5, 0, 0]}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-
-                {weeklyDisplayMode === "pieChart" && (
-                  <div
-                    className={`${
-                      isDarkMode ? "bg-gray-600" : "bg-blue-50"
-                    } p-3 sm:p-4 rounded-xl shadow-md h-48 sm:h-64 flex justify-center items-center`}
-                  >
-                    {weeklyTotals.protein === 0 &&
-                    weeklyTotals.fats === 0 &&
-                    weeklyTotals.sugars === 0 ? (
-                      <p
-                        className={`${
-                          isDarkMode ? "text-blue-200" : "text-blue-800"
-                        } text-sm sm:text-lg`}
-                      >
-                        Add some food to see the weekly pie chart!
-                      </p>
-                    ) : (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={weeklyPieChartData.filter(
-                              (item) => item.value > 0
-                            )}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            outerRadius={60} // Smaller for mobile
-                            fill="#8884d8"
-                            dataKey="value"
+                    <h3
+                      className={`text-md sm:text-lg font-semibold ${
+                        isDarkMode ? "text-gray-300" : "text-gray-700"
+                      } mb-2`}
+                    >
+                      Logged Meals for {new Date(`${historyDate}T00:00:00`).toLocaleDateString()}:
+                    </h3>
+                    <ul
+                      className={`${
+                        isDarkMode
+                          ? "bg-gray-700 border-gray-600"
+                          : "bg-white border-gray-300"
+                      } rounded-lg divide-y ${
+                        isDarkMode ? "divide-gray-600" : "divide-gray-100"
+                      } shadow-sm max-h-40 sm:max-h-48 overflow-y-auto`}
+                    >
+                      {historyEntries.map((entry) => (
+                        <li
+                          key={entry.id}
+                          className={`p-2 sm:p-3 text-xs sm:text-sm flex justify-between items-center ${
+                            isDarkMode ? "text-gray-200" : "text-gray-800"
+                          }`}
+                        >
+                          <span
+                            className={`font-medium ${
+                              isDarkMode ? "text-gray-200" : "text-gray-800"
+                            }`}
                           >
-                            {weeklyPieChartData.map((entry, index) => (
-                              <Cell
-                                key={`cell-${index}`}
-                                fill={PIE_COLORS[index % PIE_COLORS.length]}
+                            {entry.foodItem} ({entry.mealType})
+                          </span>
+                          <span
+                            className={`text-${
+                              isDarkMode ? "gray-300" : "gray-700"
+                            }`}
+                          >
+                            {entry.calories.value.toFixed(1)} kcal
+                          </span>
+                          <button
+                            onClick={() =>
+                              handleDeleteConfirmation(entry, "food")
+                            }
+                            className="ml-2 p-1 rounded-full text-red-500 hover:bg-red-100 hover:text-red-700 transition-colors duration-200"
+                            title="Delete food entry"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 w-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                               />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            formatter={(value, name) => [
-                              `${value.toFixed(1)} g`,
-                              name,
-                            ]}
-                            contentStyle={{
-                              backgroundColor: isDarkMode ? "#374151" : "#fff",
-                              border: isDarkMode
-                                ? "1px solid #4b5563"
-                                : "1px solid #ccc",
-                              borderRadius: "8px",
-                              padding: "10px",
-                            }}
-                            labelStyle={{
-                              fontWeight: "bold",
-                              color: isDarkMode ? "#93c5fd" : "#1d4ed8",
-                            }}
-                          />
-                          <Legend />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    )}
-                  </div>
+                            </svg>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p className={`text-center ${isDarkMode ? "text-gray-400" : "text-gray-500"} mt-4`}>
+                    No entries found for this date.
+                  </p>
                 )}
-                <p
-                  className={`text-xs sm:text-sm ${
-                    isDarkMode ? "text-gray-400" : "text-gray-500"
-                  } mt-2 text-center`}
-                >
-                  Note: Weekly totals are calculated from all saved entries
-                  within the last 7 days.
-                </p>
               </>
             ) : (
               <div
@@ -4309,21 +3908,21 @@ useEffect(() => {
                                   : "N/A"}{" "}
                                 g
                               </p>
-                              <p className="text-sm">
-                                <strong
-                                  className={`text-[var(--app-strong-text)]`}
-                                >
-                                  Sugars:
-                                </strong>{" "}
-                                Max{" "}
-                                {typeof recommendedDailyTargets.recommendedSugars ===
-                                "number"
-                                  ? recommendedDailyTargets.recommendedSugars.toFixed(
-                                      1
-                                    )
-                                  : "N/A"}{" "}
-                                g
-                              </p>
+                                                    <p className="text-sm">
+                        <strong
+                          className={`text-[var(--app-strong-text)]`}
+                        >
+                          Sugars:
+                        </strong>{" "}
+                        Max{" "}
+                        {typeof recommendedDailyTargets.recommendedSugars ===
+                        "number"
+                          ? recommendedDailyTargets.recommendedSugars.toFixed(
+                              1
+                            )
+                          : "N/A"}{" "}
+                        g
+                      </p>
                               {recommendedDailyTargets.notes && (
                                 <p
                                   className={`text-xs text-[var(--app-light-text)] mt-2`}
@@ -4664,54 +4263,88 @@ useEffect(() => {
             {userId ? (
               <>
                 <div
-                  className={`bg-[var(--app-card-bg-light)] p-4 rounded-xl shadow-md mb-4 sm:mb-6`}
+                  className={`bg-[var(--app-card-bg-light)] p-4 rounded-xl shadow-md mb-4 sm:mb-6 text-[var(--app-normal-text)]`}
                 >
-                  <div className="mb-4 sm:mb-6">
-                    <label
-                      htmlFor="workoutType"
-                      className={`block text-sm font-medium ${themeClasses.mediumText} mb-1 sm:mb-2`}
-                    >
-                      Workout Type:
-                    </label>
-                    <input
-                      id="workoutType"
-                      type="text"
-                      className={`w-full p-2 sm:p-3 bg-[var(--app-card-bg)] border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm sm:text-base text-[var(--app-normal-text)]`}
-                      placeholder="e.g., Running, Weightlifting, Yoga"
-                      value={workoutType}
-                      onChange={(e) => setWorkoutType(e.target.value)}
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div className="md:col-span-3">
+                      <label
+                        htmlFor="workoutType"
+                        className="block text-sm font-medium mb-1"
+                      >
+                        Workout Type:
+                      </label>
+                      <input
+                        id="workoutType"
+                        type="text"
+                        className="w-full p-2 bg-[var(--app-card-bg)] border border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm"
+                        placeholder="e.g., Running, Bench Press, Crunches"
+                        value={workoutType}
+                        onChange={(e) => setWorkoutType(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="workoutDuration"
+                        className="block text-sm font-medium mb-1"
+                      >
+                        Duration (min):
+                      </label>
+                      <input
+                        id="workoutDuration"
+                        type="number"
+                        step="1"
+                        className="w-full p-2 bg-[var(--app-card-bg)] border border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm"
+                        placeholder="e.g., 30"
+                        value={workoutDuration}
+                        onChange={(e) => setWorkoutDuration(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="workoutSets"
+                        className="block text-sm font-medium mb-1"
+                      >
+                        Sets (optional):
+                      </label>
+                      <input
+                        id="workoutSets"
+                        type="number"
+                        step="1"
+                        className="w-full p-2 bg-[var(--app-card-bg)] border border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm"
+                        placeholder="e.g., 3"
+                        value={workoutSets}
+                        onChange={(e) => setWorkoutSets(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="workoutReps"
+                        className="block text-sm font-medium mb-1"
+                      >
+                        Reps per Set (optional):
+                      </label>
+                      <input
+                        id="workoutReps"
+                        type="number"
+                        step="1"
+                        className="w-full p-2 bg-[var(--app-card-bg)] border border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm"
+                        placeholder="e.g., 12"
+                        value={workoutReps}
+                        onChange={(e) => setWorkoutReps(e.target.value)}
+                      />
+                    </div>
                   </div>
-                  <div className="mb-4 sm:mb-6">
-                    <label
-                      htmlFor="workoutDuration"
-                      className={`block text-sm font-medium ${themeClasses.mediumText} mb-1 sm:mb-2`}
-                    >
-                      Duration (minutes):
-                    </label>
-                    <input
-                      id="workoutDuration"
-                      type="number"
-                      step="1"
-                      className={`w-full p-2 sm:p-3 bg-[var(--app-card-bg)] border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm sm:text-base text-[var(--app-normal-text)]`}
-                      placeholder="e.g., 30, 60"
-                      value={workoutDuration === 0 ? "" : workoutDuration} // Display empty string if 0 for user input
-                      onChange={(e) =>
-                        setWorkoutDuration(parseFloat(e.target.value) || 0)
-                      }
-                    />
-                  </div>
-                  <div className="mb-4 sm:mb-6">
+                  <div className="mb-4">
                     <label
                       htmlFor="workoutDate"
-                      className={`block text-sm font-medium ${themeClasses.mediumText} mb-1 sm:mb-2`}
+                      className="block text-sm font-medium mb-1"
                     >
                       Date:
                     </label>
                     <input
                       id="workoutDate"
                       type="date"
-                      className={`w-full p-2 sm:p-3 bg-[var(--app-card-bg)] border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm sm:text-base text-[var(--app-normal-text)]`}
+                      className="w-full p-2 bg-[var(--app-card-bg)] border border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm"
                       value={workoutDate}
                       onChange={(e) => setWorkoutDate(e.target.value)}
                     />
@@ -4725,7 +4358,7 @@ useEffect(() => {
                     </label>
                     <textarea
                       id="workoutNotes"
-                      className={`w-full p-2 sm:p-3 bg-[var(--app-card-bg)] border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm sm:text-base text-[var(--app-normal-text)]`}
+                      className={`w-full p-2 sm:p-3 bg-[var(--app-card-bg)] border border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm sm:text-base text-[var(--app-normal-text)]`}
                       rows="3"
                       placeholder="e.g., Felt great today! Focused on arms."
                       value={workoutNotes}
@@ -4735,13 +4368,13 @@ useEffect(() => {
                   <button
                     onClick={addWorkout}
                     className={`w-full bg-[var(--app-button-primary-bg)] text-[var(--app-button-primary-text)] font-semibold py-2 sm:py-3 px-3 sm:px-4 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[var(--app-input-focus-ring)] focus:ring-offset-2 flex items-center justify-center gap-2 text-sm sm:text-base`}
-                    disabled={
-                      addingWorkout ||
-                      !userId ||
-                      !workoutType ||
-                      !workoutDuration ||
-                      !workoutDate
-                    }
+                    disabled={addingWorkout ||
+                        !userId ||
+                        !workoutType ||
+                        !workoutDate ||
+                        !((parseFloat(workoutDuration) || 0) > 0 ||
+                            ((parseInt(workoutSets, 10) || 0) > 0 &&
+                                (parseInt(workoutReps, 10) || 0) > 0))}
                   >
                     {addingWorkout ? (
                       <>
@@ -4804,52 +4437,71 @@ useEffect(() => {
                       Logged Workouts:
                     </h3>
                     <ul
-                      className={`bg-[var(--app-card-bg)] border-[var(--app-border-color)] rounded-lg divide-y border-[var(--app-border-color)]] shadow-sm max-h-40 sm:max-h-48 overflow-y-auto`}
+                      className={`bg-[var(--app-card-bg)] border border-[var(--app-border-color)] rounded-lg divide-y divide-[var(--app-border-color)] shadow-sm max-h-40 sm:max-h-48 overflow-y-auto`}
                     >
                       {workoutEntries.map((entry) => (
                         <li
                           key={entry.id}
                           className={`p-2 sm:p-3 text-xs sm:text-sm flex justify-between items-center text-[var(--app-normal-text)]`}
                         >
-                          <span
-                            className={`font-medium text-[var(--app-normal-text)]`}
-                          >
-                            {entry.workoutType} ({entry.workoutDuration} min)
-                            <span
-                              className={`text-[var(--app-light-text)] ml-2`}
-                            >
-                              {new Date(entry.timestamp).toLocaleDateString()}
+                          <div className="flex-grow">
+                            <span className="font-medium">
+                              {entry.workoutType}
                             </span>
-                          </span>
-                          {entry.workoutNotes && (
-                            <span
-                              className={`text-[var(--app-medium-text)] italic ml-2`}
-                            >
-                              {entry.workoutNotes}
+                            {entry.workoutSets > 0 && entry.workoutReps > 0 ? (
+                              <span className="text-sm text-[var(--app-medium-text)] ml-2">
+                                ({entry.workoutSets} sets of {entry.workoutReps}{" "}
+                                reps)
+                              </span>
+                            ) : entry.workoutDuration > 0 ? (
+                              <span className="text-sm text-[var(--app-medium-text)] ml-2">
+                                ({entry.workoutDuration} min)
+                              </span>
+                            ) : null}
+                            <span className="text-xs text-[var(--app-light-text)] ml-2">
+                              {new Date(entry.workoutDate).toLocaleDateString()}
                             </span>
-                          )}
-                          <button
-                            onClick={() =>
-                              handleDeleteConfirmation(entry, "workout")
-                            }
-                            className="ml-2 p-1 rounded-full text-red-500 hover:bg-red-100 hover:text-red-700 transition-colors duration-200"
-                            title="Delete workout entry"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-4 w-4"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth="2"
+                            {entry.workoutNotes && (
+                              <p className="text-xs italic text-[var(--app-light-text)] mt-1">
+                                {entry.workoutNotes}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            {entry.caloriesBurned && (
+                              <span
+                                className={`font-semibold text-sm mr-3 ${
+                                  isDarkMode
+                                    ? "text-orange-300"
+                                    : "text-orange-600"
+                                }`}
+                              >
+                                {entry.caloriesBurned.toFixed(0)} kcal
+                              </span>
+                            )}
+                            <button
+                              onClick={() =>
+                                handleDeleteConfirmation(entry, "workout")
+                              }
+                              className="p-1 rounded-full text-red-500 hover:bg-red-100 hover:text-red-700 transition-colors duration-200"
+                              title="Delete workout entry"
                             >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                              />
-                            </svg>
-                          </button>
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-4 w-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            </button>
+                          </div>
                         </li>
                       ))}
                     </ul>
