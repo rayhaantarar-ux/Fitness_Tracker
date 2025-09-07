@@ -105,10 +105,15 @@ function App() {
   const [workoutSets, setWorkoutSets] = useState(""); // New state for sets
   const [workoutReps, setWorkoutReps] = useState(""); // New state for reps
   const [workoutNotes, setWorkoutNotes] = useState("");
-  const [workoutDate, setWorkoutDate] = useState("");
+  const [workoutDate, setWorkoutDate] = useState(new Date().toISOString().split('T')[0]);
   const [workoutEntries, setWorkoutEntries] = useState([]);
   const [addingWorkout, setAddingWorkout] = useState(false);
   const [workoutError, setWorkoutError] = useState("");
+
+  // States for Workout History
+  const [workoutHistoryDate, setWorkoutHistoryDate] = useState(new Date().toISOString().split('T')[0]); // Default to today
+  const [workoutHistoryEntries, setWorkoutHistoryEntries] = useState([]);
+  const [workoutHistoryTotalCalories, setWorkoutHistoryTotalCalories] = useState(0);
 
   // States for "AI Chef" tab
   const [chefPrompt, setChefPrompt] = useState("");
@@ -132,6 +137,19 @@ function App() {
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [deleteItemType, setDeleteItemType] = useState(""); // 'food' or 'workout'
+
+  // States for Monthly Weight Check-in
+  const [lastMonthlyCheckIn, setLastMonthlyCheckIn] = useState(null);
+  const [showWeightCheckInModal, setShowWeightCheckInModal] = useState(false);
+  const [checkInWeight, setCheckInWeight] = useState("");
+  const [checkInResult, setCheckInResult] = useState(null); // 'congrats', 'keep-trying'
+
+  // State for viewing meal details
+  const [selectedMealForView, setSelectedMealForView] = useState(null);
+
+  // States for Welcome Guide
+  const [showWelcomeGuide, setShowWelcomeGuide] = useState(false);
+  const [welcomeGuideStep, setWelcomeGuideStep] = useState(0);
 
   // References for cleanup
   const foodEntriesUnsubscribe = useRef(null);
@@ -449,6 +467,20 @@ const calculateAge = (dateOfBirth) => {
     }
     
     return age;
+};
+
+const formatDate_DD_MM_YYYY = (dateString) => {
+  if (!dateString) return '';
+  // Input is 'YYYY-MM-DD' from the date input.
+  // Appending T00:00:00 treats it as local time, avoiding timezone shifts.
+  const date = new Date(`${dateString}T00:00:00`);
+  if (isNaN(date.getTime())) return ''; // Return empty for invalid dates
+
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+  const year = date.getFullYear();
+
+  return `${day} - ${month} - ${year}`;
 };
 
 const getNutritionalGoals = async (goalType) => {
@@ -782,6 +814,7 @@ useEffect(() => {
             setMaintenanceGoals(
               data.maintenanceGoals ? { ...data.maintenanceGoals } : {}
             ); // Load maintenance goals
+            setLastMonthlyCheckIn(data.lastMonthlyCheckIn || null); // Load monthly check-in date
             setMuscleGainGoals(
               data.muscleGainGoals ? { ...data.muscleGainGoals } : {}
             ); // Load muscle gain goals
@@ -795,6 +828,7 @@ useEffect(() => {
               ". Initializing profile states to defaults for new user."
             ); // DEBUG LOG
             // If no profile exists, ensure states are cleared to default and create new doc
+            setShowWelcomeGuide(true); // Show the guide for new users
             // This ensures a clean slate if a new user logs in without existing profile data
             setWeight(0);
             setHeight(0);
@@ -806,6 +840,7 @@ useEffect(() => {
             setSuggestedWeightRange({}); // Set to empty object
             setMaintenanceGoals({}); // Reset maintenance goals for new user
             setMuscleGainGoals({}); // Reset muscle gain goals for new user
+            setLastMonthlyCheckIn(null); // Reset monthly check-in for new user
             // Reset dark mode to default light mode
             setIsDarkMode(false);
 
@@ -815,7 +850,7 @@ useEffect(() => {
                 if (!docSnapshot.exists()) {
                   setDoc(
                     userProfileRef,
-                    { initialized: true },
+                    { initialized: true, hasSeenWelcomeGuide: false },
                     { merge: true }
                   ).catch((e) =>
                     console.error("Error creating default profile doc:", e)
@@ -913,6 +948,53 @@ useEffect(() => {
       }
     };
   }, [db, userId, isFirebaseReady]); // Dependencies: re-run when db, userId, or isFirebaseReady changes
+
+  // useEffect to trigger monthly weight check-in
+  useEffect(() => {
+    // Don't run if modal is already open, or we are not ready
+    if (showWeightCheckInModal || !isFirebaseReady || !userId || !db) {
+      return;
+    }
+
+    // Check if the goal is weight loss
+    if (targetOption === "weightLoss" && targetWeight > 0) {
+      const appId = "default-app-id";
+      const userProfileRef = doc(
+        db,
+        `artifacts/${appId}/users/${userId}/profile`,
+        "userProfile"
+      );
+
+      if (!lastMonthlyCheckIn) {
+        // First time for a user with this goal. Initialize the date to now.
+        // The check will happen in one month.
+        console.log("Initializing lastMonthlyCheckIn date.");
+        setDoc(
+          userProfileRef,
+          { lastMonthlyCheckIn: new Date().toISOString() },
+          { merge: true }
+        ).catch((e) =>
+          console.error("Failed to initialize lastMonthlyCheckIn", e)
+        );
+      } else {
+        const lastCheckDate = new Date(lastMonthlyCheckIn);
+        // Add 1 month to the last check-in date
+        const nextCheckDate = new Date(
+          lastCheckDate.getFullYear(),
+          lastCheckDate.getMonth() + 1,
+          lastCheckDate.getDate()
+        );
+
+        if (new Date() >= nextCheckDate) {
+          console.log("Time for monthly weight check-in!");
+          // Reset modal state before showing
+          setCheckInWeight("");
+          setCheckInResult(null);
+          setShowWeightCheckInModal(true);
+        }
+      }
+    }
+  }, [userId, targetOption, targetWeight, lastMonthlyCheckIn, isFirebaseReady, db, showWeightCheckInModal]);
 
   // Save user profile data whenever relevant states change (debounced for efficiency)
   useEffect(() => {
@@ -1317,6 +1399,7 @@ const analyzeFood = async () => {
           setFoodImagePreview("");
           setMealType("Breakfast");
           setSelectedTab("tracking"); // <<< THIS LINE WILL ENSURE TAB SWITCH >>>
+          setHistoryDate(new Date().toISOString().split('T')[0]); // Ensure history view is set to today
           success = true; // Mark as success to exit loop
         } else {
           throw new Error("Could not get nutritional info. Please try again.");
@@ -1387,6 +1470,52 @@ const analyzeFood = async () => {
     }
     setAge(calculatedAge);
   }, [weight, height, dob]);
+
+  // New useEffect to handle history data when historyDate or foodEntries change
+  useEffect(() => {
+    if (!historyDate || !Array.isArray(foodEntries)) return;
+
+    // By appending T00:00:00, we ensure the date is parsed in the user's local timezone,
+    // avoiding UTC-related off-by-one-day errors.
+    const selectedDateStr = new Date(historyDate + "T00:00:00").toDateString();
+
+    const filteredEntries = foodEntries.filter((entry) => {
+      const entryDate = new Date(entry.timestamp);
+      return entryDate.toDateString() === selectedDateStr;
+    });
+
+    setHistoryEntries(filteredEntries);
+
+    const totals = { calories: 0, protein: 0, fats: 0, sugars: 0 };
+    filteredEntries.forEach((entry) => {
+      totals.calories += parseNutrientValue(entry.calories);
+      totals.protein += parseNutrientValue(entry.protein);
+      totals.fats += parseNutrientValue(entry.fats);
+      totals.sugars += parseNutrientValue(entry.sugars);
+    });
+    setHistoryTotals(totals);
+  }, [historyDate, foodEntries]);
+
+  // New useEffect to handle workout history data when workoutHistoryDate or workoutEntries change
+  useEffect(() => {
+    if (!workoutHistoryDate || !Array.isArray(workoutEntries)) return;
+
+    // The workoutDate is already in 'YYYY-MM-DD' format, so we can compare directly.
+    const selectedDateStr = workoutHistoryDate;
+
+    const filteredEntries = workoutEntries.filter((entry) => {
+      // The workoutDate is saved from the input, which is 'YYYY-MM-DD'
+      return entry.workoutDate === selectedDateStr;
+    });
+
+    setWorkoutHistoryEntries(filteredEntries);
+
+    const totalCalories = filteredEntries.reduce((sum, entry) => {
+        return sum + (entry.caloriesBurned || 0);
+    }, 0);
+
+    setWorkoutHistoryTotalCalories(totalCalories);
+  }, [workoutHistoryDate, workoutEntries]);
 
   const getBmiCategory = (bmiValue) => {
     if (bmiValue === null || isNaN(parseFloat(bmiValue))) return "";
@@ -1710,7 +1839,6 @@ const analyzeFood = async () => {
         setWorkoutSets("");
         setWorkoutReps("");
         setWorkoutNotes("");
-        setWorkoutDate("");
         setWorkoutError("");
         setAddingWorkout(false);
         return; // Exit on success
@@ -1955,6 +2083,131 @@ const analyzeFood = async () => {
     setShowDeleteConfirmModal(false);
     setItemToDelete(null);
     setDeleteItemType("");
+  };
+
+  // Handlers for Monthly Weight Check-in Modal
+  const handleWeightCheckInSubmit = async () => {
+    const newWeight = parseFloat(checkInWeight);
+    if (!checkInWeight || isNaN(newWeight) || newWeight <= 0) {
+      alert("Please enter a valid positive weight.");
+      return;
+    }
+
+    // Update the main weight state, which will trigger auto-save
+    setWeight(newWeight);
+
+    if (newWeight <= targetWeight) {
+      setCheckInResult("congrats");
+    } else {
+      setCheckInResult("keep-trying");
+    }
+
+    // Update the check-in timestamp in Firestore
+    if (db && userId) {
+      const appId = "default-app-id";
+      const userProfileRef = doc(
+        db,
+        `artifacts/${appId}/users/${userId}/profile`,
+        "userProfile"
+      );
+      try {
+        await setDoc(
+          userProfileRef,
+          { lastMonthlyCheckIn: new Date().toISOString() },
+          { merge: true }
+        );
+      } catch (e) {
+        console.error("Failed to update lastMonthlyCheckIn after submit", e);
+      }
+    }
+  };
+
+  const handleSkipCheckIn = async () => {
+    // Update the timestamp so it doesn't ask again immediately
+    if (db && userId) {
+      const appId = "default-app-id";
+      const userProfileRef = doc(
+        db,
+        `artifacts/${appId}/users/${userId}/profile`,
+        "userProfile"
+      );
+      try {
+        await setDoc(
+          userProfileRef,
+          { lastMonthlyCheckIn: new Date().toISOString() },
+          { merge: true }
+        );
+        console.log("Skipped check-in. Timestamp updated.");
+      } catch (e) {
+        console.error("Failed to update lastMonthlyCheckIn after skip", e);
+      }
+    }
+    setShowWeightCheckInModal(false); // Close the modal
+  };
+
+  const handleCloseCheckInModal = () => {
+    setShowWeightCheckInModal(false);
+    // State is reset when modal is triggered to open, so no need to reset here.
+  };
+
+  // Welcome Guide content and handlers
+  const welcomeGuideSteps = [
+    {
+      title: "Welcome to Fitness Tracker!",
+      content:
+        "Let's take a quick tour of the app to get you started. This app helps you track your nutrition, workouts, and progress towards your fitness goals.",
+    },
+    {
+      title: "The 'Add Meal' Tab",
+      content:
+        "This is where you start. Describe a meal or upload a photo, and our AI will analyze its nutritional content (calories, protein, etc.). Once analyzed, the meal is automatically added to your daily log.",
+    },
+    {
+      title: "The 'Tracking' Tab",
+      content:
+        "View your daily and historical nutritional intake here. You can see your totals for the day, view them in charts, and look back at previous days to see your trends.",
+    },
+    {
+      title: "The 'About Me' Tab",
+      content:
+        "This is your profile. Enter your weight, height, and other personal details. This information is crucial for the AI to provide personalized suggestions. You can also log out from here.",
+    },
+    {
+      title: "The 'Target' Tab",
+      content:
+        "Set your fitness goals! Whether it's weight loss, maintenance, or muscle gain, the AI can provide you with recommended daily nutritional targets to help you achieve your objective.",
+    },
+    {
+      title: "The 'Workout' Tab",
+      content:
+        "Log your physical activities. From running to weightlifting, enter your workout details, and the AI will estimate the calories you've burned. This helps give a complete picture of your day.",
+    },
+    {
+      title: "The 'AI Chef' Tab",
+      content:
+        "Need meal ideas? Tell the AI Chef what ingredients you have or what you're in the mood for. It will generate a custom recipe tailored to your fitness goals and recent activity.",
+    },
+    {
+      title: "You're All Set!",
+      content:
+        "That's the tour! Start by adding your details in the 'About Me' tab, then set a goal in the 'Target' tab, and begin logging your meals. Happy tracking!",
+    },
+  ];
+
+  const handleDismissWelcomeGuide = async () => {
+    setShowWelcomeGuide(false);
+    if (!db || !userId) return;
+    const appId = "default-app-id";
+    const userProfileRef = doc(
+      db,
+      `artifacts/${appId}/users/${userId}/profile`,
+      "userProfile"
+    );
+    try {
+      await setDoc(userProfileRef, { hasSeenWelcomeGuide: true }, { merge: true });
+    } catch (e) {
+      console.error("Failed to update welcome guide status:", e);
+    }
   };
 
   return (
@@ -2826,7 +3079,8 @@ const analyzeFood = async () => {
                         .map((entry, index) => (
                           <li
                             key={index}
-                            className={`p-2 sm:p-3 text-xs sm:text-sm flex justify-between items-center ${
+                            onClick={() => setSelectedMealForView(entry)}
+                            className={`p-2 sm:p-3 text-xs sm:text-sm flex justify-between items-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors duration-150 ${
                               isDarkMode ? "text-gray-200" : "text-gray-800"
                             }`}
                           >
@@ -2949,7 +3203,8 @@ const analyzeFood = async () => {
                       {historyEntries.map((entry) => (
                         <li
                           key={entry.id}
-                          className={`p-2 sm:p-3 text-xs sm:text-sm flex justify-between items-center ${
+                          onClick={() => setSelectedMealForView(entry)}
+                          className={`p-2 sm:p-3 text-xs sm:text-sm flex justify-between items-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors duration-150 ${
                             isDarkMode ? "text-gray-200" : "text-gray-800"
                           }`}
                         >
@@ -4432,9 +4687,9 @@ const analyzeFood = async () => {
                 {workoutEntries.length > 0 && (
                   <div className="mt-4 sm:mt-6">
                     <h3
-                      className={`text-md sm:text-lg font-semibold text-[var(--app-medium-text)] mb-2`}
+                      className={`text-md sm:text-lg font-semibold text-[var(--app-strong-text)] mb-2`}
                     >
-                      Logged Workouts:
+                      Recent Logged Workouts:
                     </h3>
                     <ul
                       className={`bg-[var(--app-card-bg)] border border-[var(--app-border-color)] rounded-lg divide-y divide-[var(--app-border-color)] shadow-sm max-h-40 sm:max-h-48 overflow-y-auto`}
@@ -4456,11 +4711,9 @@ const analyzeFood = async () => {
                             ) : entry.workoutDuration > 0 ? (
                               <span className="text-sm text-[var(--app-medium-text)] ml-2">
                                 ({entry.workoutDuration} min)
-                              </span>
-                            ) : null}
-                            <span className="text-xs text-[var(--app-light-text)] ml-2">
-                              {new Date(entry.workoutDate).toLocaleDateString()}
-                            </span>
+                                </span>
+                              ) : null}
+                            <span className="text-xs text-[var(--app-light-text)] ml-2">{formatDate_DD_MM_YYYY(entry.workoutDate)}</span>
                             {entry.workoutNotes && (
                               <p className="text-xs italic text-[var(--app-light-text)] mt-1">
                                 {entry.workoutNotes}
@@ -4506,6 +4759,119 @@ const analyzeFood = async () => {
                       ))}
                     </ul>
                   </div>
+                )}
+
+                {/* Workout History Section */}
+                <h2
+                  className={`text-xl sm:text-2xl font-bold ${themeClasses.brandText} mt-6 sm:mt-8 mb-3 sm:mb-4`}
+                >
+                  Workout History
+                </h2>
+                <div className="mb-4">
+                  <label
+                    htmlFor="workoutHistoryDate"
+                    className={`block text-sm font-medium ${themeClasses.mediumText} mb-1 sm:mb-2`}
+                  >
+                    Select a date to view:
+                  </label>
+                  <input
+                    id="workoutHistoryDate"
+                    type="date"
+                    className={`w-full p-2 sm:p-3 bg-[var(--app-card-bg)] border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm sm:text-base text-[var(--app-normal-text)]`}
+                    value={workoutHistoryDate}
+                    onChange={(e) => setWorkoutHistoryDate(e.target.value)}
+                  />
+                </div>
+
+                {workoutHistoryEntries.length > 0 ? (
+                  <>
+                    <div
+                      className={`p-3 sm:p-4 rounded-xl shadow-md text-center mb-4 ${
+                        isDarkMode ? "bg-gray-600" : "bg-blue-50"
+                      }`}
+                    >
+                      <p className={`text-sm sm:text-md font-medium ${isDarkMode ? "text-orange-300" : "text-orange-700"}`}>Total Calories Burned:</p>
+                      <p className={`text-lg sm:text-xl font-bold ${isDarkMode ? "text-orange-200" : "text-orange-800"}`}>{workoutHistoryTotalCalories.toFixed(0)} kcal</p>
+                    </div>
+
+                    <h4
+                      className={`text-md font-semibold ${
+                        isDarkMode ? "text-gray-300" : "text-gray-700"
+                      } mb-2`}
+                    >
+                      Logged Workouts for {formatDate_DD_MM_YYYY(workoutHistoryDate)}:
+                    </h4>
+                    <ul
+                      className={`bg-[var(--app-card-bg)] border border-[var(--app-border-color)] rounded-lg divide-y divide-[var(--app-border-color)] shadow-sm max-h-40 sm:max-h-48 overflow-y-auto`}
+                    >
+                      {workoutHistoryEntries.map((entry) => (
+                        <li
+                          key={entry.id}
+                          className={`p-2 sm:p-3 text-xs sm:text-sm flex justify-between items-center text-[var(--app-normal-text)]`}
+                        >
+                          <div className="flex-grow">
+                            <span className="font-medium">
+                              {entry.workoutType}
+                            </span>
+                            {entry.workoutSets > 0 && entry.workoutReps > 0 ? (
+                              <span className="text-sm text-[var(--app-medium-text)] ml-2">
+                                ({entry.workoutSets} sets of {entry.workoutReps}{" "}
+                                reps)
+                              </span>
+                            ) : entry.workoutDuration > 0 ? (
+                              <span className="text-sm text-[var(--app-medium-text)] ml-2">
+                                ({entry.workoutDuration} min)
+                              </span>
+                            ) : null}
+                            {entry.workoutNotes && (
+                              <p className="text-xs italic text-[var(--app-light-text)] mt-1">
+                                {entry.workoutNotes}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            {entry.caloriesBurned && (
+                              <span
+                                className={`font-semibold text-sm mr-3 ${
+                                  isDarkMode
+                                    ? "text-orange-300"
+                                    : "text-orange-600"
+                                }`}
+                              >
+                                {entry.caloriesBurned.toFixed(0)} kcal
+                              </span>
+                            )}
+                            <button
+                              onClick={() =>
+                                handleDeleteConfirmation(entry, "workout")
+                              }
+                              className="p-1 rounded-full text-red-500 hover:bg-red-100 hover:text-red-700 transition-colors duration-200"
+                              title="Delete workout entry"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-4 w-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p className={`text-center ${isDarkMode ? "text-gray-400" : "text-gray-500"} mt-4`}>
+                    No workouts found for this date.
+                  </p>
                 )}
               </>
             ) : (
@@ -4711,6 +5077,220 @@ const analyzeFood = async () => {
                   Cancel
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Meal Details Modal */}
+        {selectedMealForView && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
+            <div
+              className={`bg-[var(--app-card-bg)] p-6 rounded-lg shadow-xl w-full max-w-md border border-[var(--app-border-color)] relative`}
+            >
+              <button
+                onClick={() => setSelectedMealForView(null)}
+                className="absolute top-2 right-2 p-1 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                title="Close"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+              <h3
+                className={`text-xl font-bold mb-4 text-[var(--app-strong-text)]`}
+              >
+                {selectedMealForView.foodItem}
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-[var(--app-normal-text)]">
+                <p>
+                  <strong className={`text-[var(--app-strong-text)]`}>
+                    Calories:
+                  </strong>{" "}
+                  {parseNutrientValue(selectedMealForView.calories).toFixed(1)}{" "}
+                  {selectedMealForView.calories?.unit || "kcal"}
+                </p>
+                <p>
+                  <strong className={`text-[var(--app-strong-text)]`}>
+                    Protein:
+                  </strong>{" "}
+                  {parseNutrientValue(selectedMealForView.protein).toFixed(1)}{" "}
+                  {selectedMealForView.protein?.unit || "g"}
+                </p>
+                <p>
+                  <strong className={`text-[var(--app-strong-text)]`}>
+                    Fats:
+                  </strong>{" "}
+                  {parseNutrientValue(selectedMealForView.fats).toFixed(1)}{" "}
+                  {selectedMealForView.fats?.unit || "g"}
+                </p>
+                <p>
+                  <strong className={`text-[var(--app-strong-text)]`}>
+                    Sugars:
+                  </strong>{" "}
+                  {parseNutrientValue(selectedMealForView.sugars).toFixed(1)}{" "}
+                  {selectedMealForView.sugars?.unit || "g"}
+                </p>
+              </div>
+              <div className="mt-4 pt-4 border-t border-[var(--app-border-color)] text-sm">
+                <p><strong className={`text-[var(--app-strong-text)]`}>Meal Type:</strong> {selectedMealForView.mealType}</p>
+                <p className="mt-1"><strong className={`text-[var(--app-strong-text)]`}>Logged on:</strong> {new Date(selectedMealForView.timestamp).toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Welcome Guide Modal */}
+        {showWelcomeGuide && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
+            <div
+              className={`bg-[var(--app-card-bg)] p-6 rounded-lg shadow-xl w-full max-w-md border border-[var(--app-border-color)] flex flex-col`}
+            >
+              <h3
+                className={`text-xl font-bold mb-4 text-[var(--app-strong-text)]`}
+              >
+                {welcomeGuideSteps[welcomeGuideStep].title}
+              </h3>
+              <p
+                className={`text-base text-[var(--app-normal-text)] mb-6 flex-grow`}
+              >
+                {welcomeGuideSteps[welcomeGuideStep].content}
+              </p>
+              <div className="flex justify-between items-center">
+                <div>
+                  {welcomeGuideStep > 0 && (
+                    <button
+                      onClick={() => setWelcomeGuideStep((s) => s - 1)}
+                      className={`bg-[var(--app-button-secondary-bg)] text-[var(--app-button-secondary-text)] font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+                    >
+                      Previous
+                    </button>
+                  )}
+                </div>
+                <div className="text-sm text-[var(--app-light-text)]">
+                  Step {welcomeGuideStep + 1} of {welcomeGuideSteps.length}
+                </div>
+                <div>
+                  {welcomeGuideStep < welcomeGuideSteps.length - 1 ? (
+                    <button
+                      onClick={() => setWelcomeGuideStep((s) => s + 1)}
+                      className={`bg-[var(--app-button-primary-bg)] text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+                    >
+                      Next
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleDismissWelcomeGuide}
+                      className={`bg-[var(--app-button-success-bg)] text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+                    >
+                      Get Started!
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Monthly Weight Check-in Modal */}
+        {showWeightCheckInModal && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
+            <div
+              className={`bg-[var(--app-card-bg)] p-6 rounded-lg shadow-xl w-full max-w-md border border-[var(--app-border-color)] text-center`}
+            >
+              {!checkInResult ? (
+                <>
+                  <h3
+                    className={`text-xl font-bold mb-2 text-[var(--app-strong-text)]`}
+                  >
+                    Monthly Weight Check-In
+                  </h3>
+                  <p
+                    className={`text-base text-[var(--app-normal-text)] mb-4`}
+                  >
+                    Your goal is weight loss. Let's check your progress! What is
+                    your current weight in kg?
+                  </p>
+                  <input
+                    type="number"
+                    step="0.1"
+                    className={`w-full p-2 mb-4 bg-[var(--app-card-bg)] border border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm text-[var(--app-normal-text)] text-center`}
+                    placeholder={`e.g., ${weight > 0 ? weight : 70}`}
+                    value={checkInWeight}
+                    onChange={(e) => setCheckInWeight(e.target.value)}
+                  />
+                  <div className="flex justify-center space-x-4">
+                    <button
+                      onClick={handleWeightCheckInSubmit}
+                      className={`bg-[var(--app-button-primary-bg)] text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+                      disabled={!checkInWeight}
+                    >
+                      Submit Weight
+                    </button>
+                    <button
+                      onClick={handleSkipCheckIn}
+                      className={`bg-[var(--app-button-secondary-bg)] text-[var(--app-button-secondary-text)] font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+                    >
+                      Skip for now
+                    </button>
+                  </div>
+                </>
+              ) : checkInResult === "congrats" ? (
+                <>
+                  <h3
+                    className={`text-xl font-bold mb-2 text-green-500`}
+                  >
+                    🎉 Congratulations! 🎉
+                  </h3>
+                  <p
+                    className={`text-base text-[var(--app-normal-text)] mb-4`}
+                  >
+                    You've reached your target weight of {targetWeight} kg or
+                    less! Your new weight is{" "}
+                    <strong>{parseFloat(checkInWeight).toFixed(1)} kg</strong>.
+                    Amazing work!
+                  </p>
+                  <button
+                    onClick={handleCloseCheckInModal}
+                    className={`bg-[var(--app-button-success-bg)] text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+                  >
+                    Awesome!
+                  </button>
+                </>
+              ) : (
+                // 'keep-trying'
+                <>
+                  <h3
+                    className={`text-xl font-bold mb-2 text-yellow-500`}
+                  >
+                    Keep Going!
+                  </h3>
+                  <p
+                    className={`text-base text-[var(--app-normal-text)] mb-4`}
+                  >
+                    Your new weight is{" "}
+                    <strong>{parseFloat(checkInWeight).toFixed(1)} kg</strong>.
+                    You haven't reached your target of {targetWeight} kg yet,
+                    but every step counts. Keep up the great effort!
+                  </p>
+                  <button
+                    onClick={handleCloseCheckInModal}
+                    className={`bg-[var(--app-button-primary-bg)] text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+                  >
+                    Got It
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
