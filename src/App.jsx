@@ -3107,9 +3107,10 @@ const analyzeFood = async () => {
                               {entry.calories.value.toFixed(1)} kcal
                             </span>
                             <button
-                              onClick={() =>
-                                handleDeleteConfirmation(entry, "food")
-                              }
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteConfirmation(entry, "food");
+                              }}
                               className="ml-2 p-1 rounded-full text-red-500 hover:bg-red-100 hover:text-red-700 transition-colors duration-200"
                               title="Delete food entry"
                             >
@@ -4689,12 +4690,18 @@ const analyzeFood = async () => {
                     <h3
                       className={`text-md sm:text-lg font-semibold text-[var(--app-strong-text)] mb-2`}
                     >
-                      Recent Logged Workouts:
+                      Todays Logged Workouts:
                     </h3>
                     <ul
                       className={`bg-[var(--app-card-bg)] border border-[var(--app-border-color)] rounded-lg divide-y divide-[var(--app-border-color)] shadow-sm max-h-40 sm:max-h-48 overflow-y-auto`}
                     >
-                      {workoutEntries.map((entry) => (
+                      {workoutEntries
+                        .filter(
+                          (entry) =>
+                            entry.workoutDate ===
+                            new Date().toLocaleDateString("en-CA")
+                        )
+                        .map((entry) => (
                         <li
                           key={entry.id}
                           className={`p-2 sm:p-3 text-xs sm:text-sm flex justify-between items-center text-[var(--app-normal-text)]`}
@@ -5294,6 +5301,18 @@ const analyzeFood = async () => {
             </div>
           </div>
         )}
+
+        <footer
+          className={`mt-8 pt-4 border-t ${
+            themeClasses.border
+          } text-center text-xs ${themeClasses.lightText}`}
+        >
+          <p>made with care by Rayhaan</p>
+          <p>
+            support email:{" "}
+            <a href="mailto:help.fitness.tracker@gmail.com" className={`${themeClasses.brandText} hover:underline`}>help.fitness.tracker@gmail.com</a>
+          </p>
+        </footer>
       </div>
     </div>
   );
