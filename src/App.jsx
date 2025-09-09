@@ -54,6 +54,7 @@ function App() {
     protein: 0,
     fats: 0,
     sugars: 0,
+    carbs: 0,
   });
   const [foodEntries, setFoodEntries] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -63,8 +64,8 @@ function App() {
   const [dailyDisplayMode, setDailyDisplayMode] = useState("numbers");
 
   // States for History view in Tracking tab
-  const [historyDate, setHistoryDate] = useState(new Date().toISOString().split('T')[0]); // Default to today
-  const [historyTotals, setHistoryTotals] = useState({ calories: 0, protein: 0, fats: 0, sugars: 0 });
+  const [historyDate, setHistoryDate] = useState(new Date().toISOString().split("T")[0]); // Default to today
+  const [historyTotals, setHistoryTotals] = useState({ calories: 0, protein: 0, fats: 0, sugars: 0, carbs: 0 });
   const [historyEntries, setHistoryEntries] = useState([]);
 
   // States for "About me"
@@ -176,7 +177,7 @@ function App() {
 
   // New centralized function to calculate daily and weekly nutritional totals
   const calculateNutritionTotals = (entries) => {
-    const daily = { calories: 0, protein: 0, fats: 0, sugars: 0 };
+    const daily = { calories: 0, protein: 0, fats: 0, sugars: 0, carbs: 0 };
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -193,12 +194,14 @@ function App() {
       const protein = parseNutrientValue(entry.protein);
       const fats = parseNutrientValue(entry.fats);
       const sugars = parseNutrientValue(entry.sugars);
+      const carbs = parseNutrientValue(entry.carbs); // Added carbs
 
       const nutrientsToSum = {
         calories: calories,
         protein: protein,
         fats: fats,
         sugars: sugars,
+        carbs: carbs,
       };
 
       console.log(`Processing entry for ${entry.foodItem}:`, nutrientsToSum); // DEBUG
@@ -551,11 +554,11 @@ const getNutritionalGoals = async (goalType) => {
             setGettingGoals(false);
             return;
         }
-        prompt = `For a ${ageNum}-year-old ${genderType} who weighs ${currentWeightNum}kg and is ${heightNum}cm tall, what are the recommended daily nutritional targets (calories, protein, fats, and sugars) for a healthy weight loss plan to reach a target weight of ${targetWeightNum}kg by ${targetDate}? The current date is ${currentDateObj.toDateString()}. Provide the response in JSON format according to this schema: { "recommendedCalories": "number", "recommendedProtein": "number", "recommendedFats": "number", "recommendedSugars": "number", "notes": "string" } Include a note explicitly stating this is general information and not personalized medical advice. For fats and sugars, provide maximum recommended daily intake.`;
+        prompt = `For a ${ageNum}-year-old ${genderType} who weighs ${currentWeightNum}kg and is ${heightNum}cm tall, what are the recommended daily nutritional targets (calories, protein, fats, sugars, and carbs) for a healthy weight loss plan to reach a target weight of ${targetWeightNum}kg by ${targetDate}? The current date is ${currentDateObj.toDateString()}. Provide the response in JSON format according to this schema: { "recommendedCalories": "number", "recommendedProtein": "number", "recommendedFats": "number", "recommendedSugars": "number", "recommendedCarbs": "number", "notes": "string" } Include a note explicitly stating this is general information and not personalized medical advice. For fats and sugars, provide maximum recommended daily intake.`;
     } else if (goalType === 'maintenance') {
-        prompt = `For a ${ageNum}-year-old ${genderType} who weighs ${currentWeightNum}kg and is ${heightNum}cm tall, what are the recommended daily nutritional targets (calories, protein, fats, and sugars) for maintaining their current weight? Provide the response in JSON format according to this schema: { "recommendedCalories": "number", "recommendedProtein": "number", "recommendedFats": "number", "recommendedSugars": "number", "notes": "string" } Include a note explicitly stating this is general information and not personalized medical advice. For fats and sugars, provide maximum recommended daily intake.`;
+        prompt = `For a ${ageNum}-year-old ${genderType} who weighs ${currentWeightNum}kg and is ${heightNum}cm tall, what are the recommended daily nutritional targets (calories, protein, fats, sugars, and carbs) for maintaining their current weight? Provide the response in JSON format according to this schema: { "recommendedCalories": "number", "recommendedProtein": "number", "recommendedFats": "number", "recommendedSugars": "number", "recommendedCarbs": "number", "notes": "string" } Include a note explicitly stating this is general information and not personalized medical advice. For fats and sugars, provide maximum recommended daily intake.`;
     } else { // 'gain'
-        prompt = `For a ${ageNum}-year-old ${genderType} who weighs ${currentWeightNum}kg and is ${heightNum}cm tall, what are the recommended daily nutritional targets (calories, protein, fats, and sugars) for muscle gain and building strength? Provide the response in JSON format according to this schema: { "recommendedCalories": "number", "recommendedProtein": "number", "recommendedFats": "number", "recommendedSugars": "number", "notes": "string" } Include a note explicitly stating this is general information and not personalized medical advice. For fats and sugars, provide maximum recommended daily intake.`;
+        prompt = `For a ${ageNum}-year-old ${genderType} who weighs ${currentWeightNum}kg and is ${heightNum}cm tall, what are the recommended daily nutritional targets (calories, protein, fats, sugars, and carbs) for muscle gain and building strength? Provide the response in JSON format according to this schema: { "recommendedCalories": "number", "recommendedProtein": "number", "recommendedFats": "number", "recommendedSugars": "number", "recommendedCarbs": "number", "notes": "string" } Include a note explicitly stating this is general information and not personalized medical advice. For fats and sugars, provide maximum recommended daily intake.`;
     }
 
     const payload = {
@@ -569,10 +572,11 @@ const getNutritionalGoals = async (goalType) => {
                     recommendedProtein: { type: "NUMBER" },
                     recommendedFats: { type: "NUMBER" },
                     recommendedSugars: { type: "NUMBER" },
+                    recommendedCarbs: { type: "NUMBER" }, // Added carbs
                     notes: { type: "STRING" },
                 },
-                required: ["recommendedCalories", "recommendedProtein", "recommendedFats", "recommendedSugars"],
-                propertyOrdering: ["recommendedCalories", "recommendedProtein", "recommendedFats", "recommendedSugars", "notes"],
+                required: ["recommendedCalories", "recommendedProtein", "recommendedFats", "recommendedSugars", "recommendedCarbs"],
+                propertyOrdering: ["recommendedCalories", "recommendedProtein", "recommendedFats", "recommendedSugars", "recommendedCarbs", "notes"],
             },
         },
     };
@@ -613,6 +617,7 @@ const getNutritionalGoals = async (goalType) => {
                         recommendedProtein: normalizeAiGoal(parsedJson.recommendedProtein),   // Directly from AI
                         recommendedFats: normalizeAiGoal(parsedJson.recommendedFats),      // Directly from AI
                         recommendedSugars: normalizeAiGoal(parsedJson.recommendedSugars),    // Directly from AI
+                        recommendedCarbs: normalizeAiGoal(parsedJson.recommendedCarbs),      // Added carbs
                         notes: parsedJson.notes || `AI generated ${notesSuffix}`
                     };
                     setGoals(normalizedGoals);
@@ -711,7 +716,7 @@ useEffect(() => {
             setSuggestedWeightRange({}); // Reset to empty object
             setMaintenanceGoals({}); // Reset maintenance goals on logout
             setFoodEntries([]);
-            setDailyTotals({ calories: 0, protein: 0, fats: 0, sugars: 0, carbs: 0 });
+            setDailyTotals({ calories: 0, protein: 0, fats: 0, sugars: 0, carbs: 0, });
             setNutritionalInfo(null); // Clear last analysis result on logout
 
             // Reset theme mode to default light mode on logout
@@ -1422,14 +1427,16 @@ const analyzeFood = async () => {
   const dailyChartData = [
     { name: "Protein", value: dailyTotals.protein },
     { name: "Fats", value: dailyTotals.fats },
+    { name: "Sugars", value: dailyTotals.sugars },
   ];
 
   const dailyPieChartData = [
     { name: "Protein", value: dailyTotals.protein * 4, grams: dailyTotals.protein },
     { name: "Fats", value: dailyTotals.fats * 9, grams: dailyTotals.fats },
+    { name: "Sugars", value: dailyTotals.sugars * 4, grams: dailyTotals.sugars },
   ];
 
-  const totalDailyMacroCalories = dailyTotals.protein * 4 + dailyTotals.fats * 9;
+  const totalDailyMacroCalories = dailyTotals.protein * 4 + dailyTotals.fats * 9 + dailyTotals.sugars * 4;
 
   const PIE_COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff7300"];
 
@@ -1474,7 +1481,7 @@ const analyzeFood = async () => {
   // New useEffect to handle history data when historyDate or foodEntries change
   useEffect(() => {
     if (!historyDate || !Array.isArray(foodEntries)) return;
-
+  
     // By appending T00:00:00, we ensure the date is parsed in the user's local timezone,
     // avoiding UTC-related off-by-one-day errors.
     const selectedDateStr = new Date(historyDate + "T00:00:00").toDateString();
@@ -1485,13 +1492,14 @@ const analyzeFood = async () => {
     });
 
     setHistoryEntries(filteredEntries);
-
-    const totals = { calories: 0, protein: 0, fats: 0, sugars: 0 };
+  
+    const totals = { calories: 0, protein: 0, fats: 0, sugars: 0, carbs: 0 };
     filteredEntries.forEach((entry) => {
       totals.calories += parseNutrientValue(entry.calories);
       totals.protein += parseNutrientValue(entry.protein);
       totals.fats += parseNutrientValue(entry.fats);
       totals.sugars += parseNutrientValue(entry.sugars);
+      totals.carbs += parseNutrientValue(entry.carbs);
     });
     setHistoryTotals(totals);
   }, [historyDate, foodEntries]);
@@ -1527,7 +1535,7 @@ const analyzeFood = async () => {
     return "";
   };
 
-  const suggestHealthyWeightRange = async () => {
+const suggestHealthyWeightRange = async () => {
     setSuggestionError("");
     setSuggestingWeight(true);
     setSuggestedWeightRange({}); // Initialize as empty object
@@ -1535,13 +1543,7 @@ const analyzeFood = async () => {
     const ageNum = parseFloat(age) || 0;
     const heightNum = parseFloat(height) || 0;
 
-    if (
-      isNaN(ageNum) ||
-      ageNum <= 0 ||
-      isNaN(heightNum) ||
-      heightNum <= 0 ||
-      !gender
-    ) {
+    if (isNaN(ageNum) || ageNum <= 0 || isNaN(heightNum) || heightNum <= 0 || !gender) {
       setSuggestionError(
         'Please enter valid positive numbers for age and height, and select gender in the "About Me" tab first.'
       );
@@ -1589,28 +1591,27 @@ const analyzeFood = async () => {
 
         const result = await response.json();
 
-        if (
-          result.candidates &&
-          result.candidates.length > 0 &&
-          result.candidates[0].content &&
-          result.candidates[0].content.parts &&
-          result.candidates[0].content.parts.length > 0
-        ) {
+        if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
           const jsonText = result.candidates[0].content.parts[0].text;
           const parsedJson = JSON.parse(jsonText);
           setSuggestedWeightRange(parsedJson); // Set to the object received
           // Explicitly trigger a save after AI results are obtained
           handleSaveProfile();
-          break;
+          setSuggestingWeight(false);
+          return; // Exit on success
         } else {
-          setSuggestionError(
-            "Could not get suggested weight range. Please try again."
-          );
-          setSuggestedWeightRange({}); // Ensure empty object on error
-          break;
+          throw new Error("Could not get suggested weight range due to unexpected API response.");
         }
-      } finally {
-        setSuggestingWeight(false);
+      } catch (e) {
+        console.error(`Error suggesting weight (attempt ${retryCount + 1}):`, e);
+        retryCount++;
+        if (retryCount >= maxRetries) {
+          setSuggestionError(`Failed to get suggestion after ${maxRetries} attempts. ${e.message}`);
+          setSuggestingWeight(false);
+        } else {
+          const delay = initialDelay * Math.pow(2, retryCount - 1);
+          await new Promise(res => setTimeout(res, delay));
+        }
       }
     }
   };
@@ -2211,42 +2212,67 @@ const analyzeFood = async () => {
   };
 
   return (
-    <div
-      className={`min-h-screen ${
-        isDarkMode
-          ? "bg-gray-900"
-          : "bg-gradient-to-br from-blue-50 to-cyan-100"
-      } flex items-center justify-center p-2 sm:p-4 font-sans ${
-        isDarkMode ? "text-gray-200" : "text-gray-800"
-      }`}
-    >
+   <>
+   <style>{`
+    @keyframes fadeInUp {
+     from {
+      opacity: 0;
+      transform: translateY(15px);
+     }
+     to {
+      opacity: 1;
+      transform: translateY(0);
+     }
+    }
+    @keyframes fadeIn {
+     from { opacity: 0; }
+     to { opacity: 1; }
+    }
+    @keyframes fadeInScale {
+     from {
+      opacity: 0;
+      transform: scale(0.95);
+     }
+     to {
+      opacity: 1;
+      transform: scale(1.0);
+     }
+    }
+    .animate-fadeInUp {
+     animation: fadeInUp 0.4s ease-out forwards;
+    }
+    .animate-fadeIn {
+     animation: fadeIn 0.3s ease-out forwards;
+    }
+    .animate-fadeInScale {
+     animation: fadeInScale 0.3s ease-out forwards;
+    }
+   `}</style>
       <div
-        className={`${
-          isDarkMode ? "bg-gray-800" : "bg-white"
-        } p-4 sm:p-8 rounded-2xl shadow-xl w-full max-w-2xl transform transition-all duration-300 hover:shadow-2xl`}
+        className={`min-h-screen ${
+          isDarkMode
+            ? "bg-gray-900"
+            : "bg-gradient-to-br from-blue-50 to-cyan-100"
+        } flex items-center justify-center p-2 sm:p-4 font-sans ${
+          isDarkMode ? "text-gray-200" : "text-gray-800"
+        }`}
       >
+        <div
+          className={`${
+            isDarkMode ? "bg-gray-800" : "bg-white"
+          } p-4 sm:p-8 rounded-2xl shadow-xl w-full max-w-2xl transform transition-all duration-300 hover:shadow-2xl animate-fadeInUp`}
+        >
         <div className="flex justify-between items-center mb-4 sm:mb-6">
           <h1
             className={`text-2xl sm:text-3xl font-bold text-center ${
               isDarkMode ? "text-blue-400" : "text-blue-700"
             } flex items-center justify-center gap-2 sm:gap-3`}
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className={`h-6 w-6 sm:h-8 sm:w-8 ${
-                isDarkMode ? "text-blue-300" : "text-blue-600"
-              }`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M9 19V6l12-3v13m-6 0V9.333L9 12V19m0-7l-2 5m2-5.333L9 12M13 19V9.333L16 12V19m0-7l-2 5m2-5.333L16 12"
-              />
-            </svg>
+            <img
+              src="/assets/fitness-logo-nobckround.png"
+              alt="Fitness Tracker Logo"
+              className="h-8 w-8 sm:h-10 sm:w-10"
+            />
             Fitness Tracker
           </h1>
           {/* Dark Mode Toggle Button */}
@@ -2357,7 +2383,7 @@ const analyzeFood = async () => {
             Add Meal
           </button>
           <button
-            className={`flex-1 py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium rounded-t-lg sm:rounded-none ${
+            className={`flex-1 py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium rounded-t-lg sm:rounded-none transition-colors duration-200 ${
               selectedTab === "tracking"
                 ? isDarkMode
                   ? "text-blue-400 border-b-2 border-blue-400"
@@ -2374,7 +2400,7 @@ const analyzeFood = async () => {
             Tracking
           </button>
           <button
-            className={`flex-1 py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium rounded-t-lg sm:rounded-none ${
+            className={`flex-1 py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium rounded-t-lg sm:rounded-none transition-colors duration-200 ${
               selectedTab === "aboutMe"
                 ? isDarkMode
                   ? "text-blue-400 border-b-2 border-blue-400"
@@ -2388,7 +2414,7 @@ const analyzeFood = async () => {
             About Me
           </button>
           <button
-            className={`flex-1 py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium rounded-t-lg sm:rounded-none ${
+            className={`flex-1 py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium rounded-t-lg sm:rounded-none transition-colors duration-200 ${
               selectedTab === "target"
                 ? isDarkMode
                   ? "text-blue-400 border-b-2 border-blue-400"
@@ -2402,7 +2428,7 @@ const analyzeFood = async () => {
             Target
           </button>
           <button
-            className={`flex-1 py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium rounded-t-lg sm:rounded-none ${
+            className={`flex-1 py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium rounded-t-lg sm:rounded-none transition-colors duration-200 ${
               selectedTab === "workout"
                 ? isDarkMode
                   ? "text-blue-400 border-b-2 border-blue-400"
@@ -2416,7 +2442,7 @@ const analyzeFood = async () => {
             Workout
           </button>
           <button
-            className={`flex-1 py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium rounded-t-lg sm:rounded-none ${
+            className={`flex-1 py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium rounded-t-lg sm:rounded-none transition-colors duration-200 ${
               selectedTab === "aiChef"
                 ? isDarkMode
                   ? "text-blue-400 border-b-2 border-blue-400"
@@ -2433,7 +2459,7 @@ const analyzeFood = async () => {
 
         {/* Add Meal Tab Content */}
         {selectedTab === "addMeal" && (
-          <div>
+          <div className="animate-fadeInUp">
             {userId ? (
               <>
                 <div className="mb-4 sm:mb-6">
@@ -2539,7 +2565,7 @@ const analyzeFood = async () => {
                     isDarkMode
                       ? "bg-blue-700 hover:bg-blue-800"
                       : "bg-blue-600 hover:bg-blue-700"
-                  } text-white font-semibold py-2 sm:py-3 px-3 sm:px-4 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 ${
+                  } text-white font-semibold py-2 sm:py-3 px-3 sm:px-4 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${isDarkMode ? 'hover:shadow-[0_0_15px_rgba(96,165,250,0.4)]' : 'hover:shadow-[0_0_15px_rgba(59,130,246,0.4)]'} focus:outline-none focus:ring-2 ${
                     isDarkMode ? "focus:ring-blue-400" : "focus:ring-blue-500"
                   } focus:ring-offset-2 flex items-center justify-center gap-2 text-sm sm:text-base`}
                   disabled={loading || !isFirebaseReady || !userId}
@@ -2606,7 +2632,7 @@ const analyzeFood = async () => {
 
         {/* Tracking Tab Content */}
         {selectedTab === "tracking" && (
-          <div className="mt-4">
+          <div className="mt-4 animate-fadeInUp">
             {userId ? (
               <>
                 {/* Moved Nutritional Info Display here */}
@@ -2616,7 +2642,7 @@ const analyzeFood = async () => {
                       isDarkMode ? "bg-gray-600" : "bg-blue-50"
                     } rounded-lg ${
                       isDarkMode ? "border-gray-500" : "border-blue-200"
-                    } shadow-inner`}
+                    } shadow-inner animate-fadeInUp`}
                   >
                     <h2
                       className={`text-lg sm:text-xl font-semibold ${
@@ -2805,7 +2831,7 @@ const analyzeFood = async () => {
                   <div
                     className={`${
                       isDarkMode ? "bg-gray-600" : "bg-blue-50"
-                    } p-3 sm:p-4 rounded-xl shadow-md grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-center`}
+                    } p-3 sm:p-4 rounded-xl shadow-md grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-center animate-fadeInUp`}
                   >
                     <div>
                       <p
@@ -2944,47 +2970,59 @@ const analyzeFood = async () => {
                   <div
                     className={`${
                       isDarkMode ? "bg-gray-600" : "bg-blue-50"
-                    } p-3 sm:p-4 rounded-xl shadow-md h-48 sm:h-64`}
+                    } p-3 sm:p-4 rounded-xl shadow-md h-48 sm:h-64 flex justify-center items-center animate-fadeInUp`}
                   >
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={dailyChartData}
-                        margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
+                    {dailyTotals.protein === 0 &&
+                    dailyTotals.fats === 0 &&
+                    dailyTotals.sugars === 0 ? (
+                      <p
+                        className={`${
+                          isDarkMode ? "text-blue-200" : "text-blue-800"
+                        } text-sm sm:text-lg`}
                       >
-                        <XAxis
-                          dataKey="name"
-                          stroke={isDarkMode ? "#e5e7eb" : "#374151"}
-                        />
-                        <YAxis stroke={isDarkMode ? "#e5e7eb" : "#374151"} />
-                        <Tooltip
-                          formatter={(value, name, props) => [
-                            `${value.toFixed(1)} ${
-                              name === "Calories" ? "kcal" : "g"
-                            }`,
-                            name,
-                          ]}
-                          contentStyle={{
-                            backgroundColor: isDarkMode ? "#374151" : "#fff",
-                            border: isDarkMode
-                              ? "1px solid #4b5563"
-                              : "1px solid #ccc",
-                            borderRadius: "8px",
-                            padding: "10px",
-                          }}
-                          labelStyle={{
-                            fontWeight: "bold",
-                            color: isDarkMode ? "#93c5fd" : "#1d4ed8",
-                          }}
-                        />
-                        <Legend />
-                        <Bar
-                          dataKey="value"
-                          fill={isDarkMode ? "#60a5fa" : "#3b82f6"}
-                          name="Amount"
-                          radius={[5, 5, 0, 0]}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
+                        Add some food to see the daily bar graph!
+                      </p>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={dailyChartData}
+                          margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
+                        >
+                          <XAxis
+                            dataKey="name"
+                            stroke={isDarkMode ? "#e5e7eb" : "#374151"}
+                          />
+                          <YAxis stroke={isDarkMode ? "#e5e7eb" : "#374151"} />
+                          <Tooltip
+                            formatter={(value, name, props) => [
+                              `${value.toFixed(1)} ${
+                                name === "Calories" ? "kcal" : "g"
+                              }`,
+                              name,
+                            ]}
+                            contentStyle={{
+                              backgroundColor: isDarkMode ? "#374151" : "#fff",
+                              border: isDarkMode
+                                ? "1px solid #4b5563"
+                                : "1px solid #ccc",
+                              borderRadius: "8px",
+                              padding: "10px",
+                            }}
+                            labelStyle={{
+                              fontWeight: "bold",
+                              color: isDarkMode ? "#93c5fd" : "#1d4ed8",
+                            }}
+                          />
+                          <Legend />
+                          <Bar
+                            dataKey="value"
+                            fill={isDarkMode ? "#60a5fa" : "#3b82f6"}
+                            name="Amount"
+                            radius={[5, 5, 0, 0]}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
                   </div>
                 )}
 
@@ -2992,7 +3030,7 @@ const analyzeFood = async () => {
                   <div
                     className={`${
                       isDarkMode ? "bg-gray-600" : "bg-blue-50"
-                    } p-3 sm:p-4 rounded-xl shadow-md h-48 sm:h-64 flex justify-center items-center`}
+                    } p-3 sm:p-4 rounded-xl shadow-md h-48 sm:h-64 flex justify-center items-center animate-fadeInUp`}
                   >
                                             {dailyTotals.protein === 0 &&
                         dailyTotals.fats === 0 &&
@@ -3223,28 +3261,6 @@ const analyzeFood = async () => {
                           >
                             {entry.calories.value.toFixed(1)} kcal
                           </span>
-                          <button
-                            onClick={() =>
-                              handleDeleteConfirmation(entry, "food")
-                            }
-                            className="ml-2 p-1 rounded-full text-red-500 hover:bg-red-100 hover:text-red-700 transition-colors duration-200"
-                            title="Delete food entry"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-4 w-4"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                              />
-                            </svg>
-                          </button>
                         </li>
                       ))}
                     </ul>
@@ -3272,7 +3288,7 @@ const analyzeFood = async () => {
 
         {/* About Me Tab Content */}
         {selectedTab === "aboutMe" && (
-          <div className="mt-4">
+          <div className="mt-4 animate-fadeInUp">
             <h2
               className={`text-xl sm:text-2xl font-bold ${
                 isDarkMode ? "text-blue-300" : "text-blue-700"
@@ -3396,7 +3412,7 @@ const analyzeFood = async () => {
                         isDarkMode
                           ? "bg-green-700 hover:bg-green-800"
                           : "bg-green-600 hover:bg-green-700"
-                      } text-white font-semibold py-2 sm:py-3 px-3 sm:px-4 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 ${
+                      } text-white font-semibold py-2 sm:py-3 px-3 sm:px-4 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${isDarkMode ? 'hover:shadow-[0_0_15px_rgba(34,197,94,0.5)]' : 'hover:shadow-[0_0_15px_rgba(34,197,94,0.5)]'} focus:outline-none focus:ring-2 ${
                         isDarkMode
                           ? "focus:ring-green-400"
                           : "focus:ring-green-500"
@@ -3416,7 +3432,7 @@ const analyzeFood = async () => {
                         isDarkMode
                           ? "bg-blue-700 hover:bg-blue-800"
                           : "bg-blue-600 hover:bg-blue-700"
-                      } text-white font-semibold py-2 sm:py-3 px-3 sm:px-4 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 ${
+                        } text-white font-semibold py-2 sm:py-3 px-3 sm:px-4 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${isDarkMode ? 'hover:shadow-[0_0_15px_rgba(96,165,250,0.4)]' : 'hover:shadow-[0_0_15px_rgba(59,130,246,0.4)]'} focus:outline-none focus:ring-2 ${
                         isDarkMode
                           ? "focus:ring-blue-400"
                           : "focus:ring-blue-500"
@@ -3456,7 +3472,7 @@ const analyzeFood = async () => {
                       isDarkMode
                         ? "bg-red-700 hover:bg-red-800"
                         : "bg-red-500 hover:bg-red-600"
-                    } text-white font-semibold py-2 sm:py-3 px-4 sm:px-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 ${
+                      } text-white font-semibold py-2 sm:py-3 px-4 sm:px-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${isDarkMode ? 'hover:shadow-[0_0_15px_rgba(220,38,38,0.5)]' : 'hover:shadow-[0_0_15px_rgba(239,68,68,0.5)]'} focus:outline-none focus:ring-2 ${
                       isDarkMode ? "focus:ring-red-400" : "focus:ring-red-400"
                     } focus:ring-offset-2 text-sm sm:text-base`}
                   >
@@ -3686,7 +3702,7 @@ const analyzeFood = async () => {
               <div className="mt-6 text-center">
                 <button
                   onClick={handleSaveProfile}
-                  className={`bg-[var(--app-button-indigo-bg)] text-white font-semibold py-2 px-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[var(--app-input-focus-ring)] focus:ring-offset-2 text-sm`}
+                  className={`bg-[var(--app-button-indigo-bg)] text-white font-semibold py-2 px-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${isDarkMode ? 'hover:shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'hover:shadow-[0_0_15px_rgba(99,102,241,0.5)]'} focus:outline-none focus:ring-2 focus:ring-[var(--app-input-focus-ring)] focus:ring-offset-2 text-sm`}
                 >
                   Save Profile Manually
                 </button>
@@ -3697,7 +3713,7 @@ const analyzeFood = async () => {
 
         {/* Target Tab Content */}
         {selectedTab === "target" && (
-          <div className="mt-4">
+          <div className="mt-4 animate-fadeInUp">
             <h2
               className={`text-xl sm:text-2xl font-bold ${
                 isDarkMode ? "text-blue-300" : "text-blue-700"
@@ -3802,7 +3818,7 @@ const analyzeFood = async () => {
                             isDarkMode
                               ? "bg-blue-700 hover:bg-blue-800"
                               : "bg-blue-600 hover:bg-blue-700"
-                          } text-white font-semibold py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl shadow-md transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 ${
+                          } text-white font-semibold py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${isDarkMode ? 'hover:shadow-[0_0_15px_rgba(96,165,250,0.4)]' : 'hover:shadow-[0_0_15px_rgba(59,130,246,0.4)]'} focus:outline-none focus:ring-2 ${
                             isDarkMode
                               ? "focus:ring-blue-400"
                               : "focus:ring-blue-500"
@@ -3872,11 +3888,7 @@ const analyzeFood = async () => {
                             <div
                               className={`mt-3 sm:mt-4 p-2 sm:p-3 ${
                                 isDarkMode ? "bg-gray-600" : "bg-blue-50"
-                              } rounded-lg text-center ${
-                                isDarkMode
-                                  ? "border-gray-500"
-                                  : "border-blue-200"
-                              }`}
+                              } rounded-lg text-center animate-fadeInUp`}
                             >
                               <p
                                 className={`text-sm sm:text-md font-medium ${
@@ -3993,7 +4005,7 @@ const analyzeFood = async () => {
                         <div
                           className={`mt-4 sm:mt-6 p-3 sm:p-4 ${
                             isDarkMode ? "bg-gray-600" : "bg-blue-50"
-                          } rounded-xl shadow-md text-center`}
+                          } rounded-xl shadow-md text-center animate-fadeInUp`}
                         >
                           {typeof monthlyWeightChange === "number" &&
                           !isNaN(monthlyWeightChange) &&
@@ -4042,7 +4054,7 @@ const analyzeFood = async () => {
                             isDarkMode
                               ? "bg-indigo-700 hover:bg-indigo-800"
                               : "bg-indigo-600 hover:bg-indigo-700"
-                          } text-white font-semibold py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl shadow-md transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 ${
+                          } text-white font-semibold py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${isDarkMode ? 'hover:shadow-[0_0_15px_rgba(67,56,202,0.5)]' : 'hover:shadow-[0_0_15px_rgba(79,70,229,0.5)]'} focus:outline-none focus:ring-2 ${
                             isDarkMode
                               ? "focus:ring-blue-400"
                               : "focus:ring-blue-500"
@@ -4114,7 +4126,7 @@ const analyzeFood = async () => {
                         {recommendedDailyTargets &&
                           (Object.keys(recommendedDailyTargets).length > 0 ? ( // Check if object properties are not null
                             <div
-                              className={`mt-3 sm:mt-4 p-3 sm:p-4 bg-[var(--app-card-bg-light)] rounded-lg border-[var(--app-card-border)] shadow-inner`}
+                              className={`mt-3 sm:mt-4 p-3 sm:p-4 bg-[var(--app-card-bg-light)] rounded-lg border-[var(--app-card-border)] shadow-inner animate-fadeInUp`}
                             >
                               <h4
                                 className={`text-md sm:text-lg font-semibold text-[var(--app-accent-main)] mb-2`}
@@ -4203,7 +4215,7 @@ const analyzeFood = async () => {
                       <div className="mb-4 sm:mb-6">
                         <button
                           onClick={getMaintenanceDailyGoals}
-                          className={`w-full bg-[var(--app-button-primary-bg)] text-[var(--app-button-primary-text)] font-semibold py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl shadow-md transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[var(--app-input-focus-ring)] focus:ring-offset-2 flex items-center justify-center gap-2 text-sm`}
+                          className={`w-full bg-[var(--app-button-primary-bg)] text-[var(--app-button-primary-text)] font-semibold py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${isDarkMode ? 'hover:shadow-[0_0_15px_rgba(96,165,250,0.4)]' : 'hover:shadow-[0_0_15px_rgba(59,130,246,0.4)]'} focus:outline-none focus:ring-2 focus:ring-[var(--app-input-focus-ring)] focus:ring-offset-2 flex items-center justify-center gap-2 text-sm`}
                           disabled={
                             gettingMaintenanceGoals ||
                             (parseFloat(weight) || 0) <= 0 ||
@@ -4267,7 +4279,7 @@ const analyzeFood = async () => {
                         {maintenanceGoals &&
                           (Object.keys(maintenanceGoals).length > 0 ? (
                             <div
-                              className={`mt-3 sm:mt-4 p-3 sm:p-4 bg-[var(--app-card-bg-light)] rounded-lg border-[var(--app-card-border)] shadow-inner`}
+                              className={`mt-3 sm:mt-4 p-3 sm:p-4 bg-[var(--app-card-bg-light)] rounded-lg border-[var(--app-card-border)] shadow-inner animate-fadeInUp`}
                             >
                               <h4
                                 className={`text-md sm:text-lg font-semibold text-[var(--app-accent-main)] mb-2`}
@@ -4354,7 +4366,7 @@ const analyzeFood = async () => {
                       <div className="mb-4 sm:mb-6">
                         <button
                           onClick={getMuscleGainGoals} // Call the new function
-                          className={`w-full bg-[var(--app-button-primary-bg)] text-[var(--app-button-primary-text)] font-semibold py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl shadow-md transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[var(--app-input-focus-ring)] focus:ring-offset-2 flex items-center justify-center gap-2 text-sm`}
+                          className={`w-full bg-[var(--app-button-primary-bg)] text-[var(--app-button-primary-text)] font-semibold py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${isDarkMode ? 'hover:shadow-[0_0_15px_rgba(96,165,250,0.4)]' : 'hover:shadow-[0_0_15px_rgba(59,130,246,0.4)]'} focus:outline-none focus:ring-2 focus:ring-[var(--app-input-focus-ring)] focus:ring-offset-2 flex items-center justify-center gap-2 text-sm`}
                           disabled={
                             gettingMuscleGainGoals ||
                             (parseFloat(weight) || 0) <= 0 ||
@@ -4418,7 +4430,7 @@ const analyzeFood = async () => {
                         {muscleGainGoals &&
                           (Object.keys(muscleGainGoals).length > 0 ? (
                             <div
-                              className={`mt-3 sm:mt-4 p-3 sm:p-4 bg-[var(--app-card-bg-light)] rounded-lg border-[var(--app-card-border)] shadow-inner`}
+                              className={`mt-3 sm:mt-4 p-3 sm:p-4 bg-[var(--app-card-bg-light)] rounded-lg border-[var(--app-card-border)] shadow-inner animate-fadeInUp`}
                             >
                               <h4
                                 className={`text-md sm:text-lg font-semibold text-[var(--app-accent-main)] mb-2`}
@@ -4510,7 +4522,7 @@ const analyzeFood = async () => {
 
         {/* Workout Tab Content */}
         {selectedTab === "workout" && (
-          <div className="mt-4">
+          <div className="mt-4 animate-fadeInUp">
             <h2
               className={`text-xl sm:text-2xl font-bold ${themeClasses.brandText} mb-3 sm:mb-4`}
             >
@@ -4623,7 +4635,7 @@ const analyzeFood = async () => {
                   </div>
                   <button
                     onClick={addWorkout}
-                    className={`w-full bg-[var(--app-button-primary-bg)] text-[var(--app-button-primary-text)] font-semibold py-2 sm:py-3 px-3 sm:px-4 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[var(--app-input-focus-ring)] focus:ring-offset-2 flex items-center justify-center gap-2 text-sm sm:text-base`}
+                    className={`w-full bg-[var(--app-button-primary-bg)] text-[var(--app-button-primary-text)] font-semibold py-2 sm:py-3 px-3 sm:px-4 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${isDarkMode ? 'hover:shadow-[0_0_15px_rgba(96,165,250,0.4)]' : 'hover:shadow-[0_0_15px_rgba(59,130,246,0.4)]'} focus:outline-none focus:ring-2 focus:ring-[var(--app-input-focus-ring)] focus:ring-offset-2 flex items-center justify-center gap-2 text-sm sm:text-base`}
                     disabled={addingWorkout ||
                         !userId ||
                         !workoutType ||
@@ -4898,7 +4910,7 @@ const analyzeFood = async () => {
 
         {/* AI Chef Tab Content */}
         {selectedTab === "aiChef" && (
-          <div className="mt-4">
+          <div className="mt-4 animate-fadeInUp">
             <h2
               className={`text-xl sm:text-2xl font-bold ${themeClasses.brandText} mb-3 sm:mb-4`}
             >
@@ -4965,7 +4977,7 @@ const analyzeFood = async () => {
                     onClick={generateRecipe}
                     className={`w-full ${
                       themeClasses.buttonPrimary
-                    } font-semibold py-2 sm:py-3 px-3 sm:px-4 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 ${
+                    } font-semibold py-2 sm:py-3 px-3 sm:px-4 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${isDarkMode ? 'hover:shadow-[0_0_15px_rgba(96,165,250,0.4)]' : 'hover:shadow-[0_0_15px_rgba(59,130,246,0.4)]'} focus:outline-none focus:ring-2 ${
                       isDarkMode ? "focus:ring-blue-400" : "focus:ring-blue-500"
                     } focus:ring-offset-2 flex items-center justify-center gap-2 text-sm sm:text-base mt-4`}
                     disabled={generatingRecipe || !userId || !chefPrompt}
@@ -5025,7 +5037,7 @@ const analyzeFood = async () => {
 
                 {aiRecipe && (
                   <div
-                    className={`mt-4 sm:mt-6 p-3 sm:p-4 bg-[var(--app-card-bg-light)] rounded-lg border-[var(--app-card-border)] shadow-inner`}
+                      className={`mt-4 sm:mt-6 p-3 sm:p-4 bg-[var(--app-card-bg-light)] rounded-lg border-[var(--app-card-border)] shadow-inner animate-fadeInUp`}
                   >
                     <h3
                       className={`text-lg sm:text-xl font-semibold text-[var(--app-accent-main)] mb-2 sm:mb-3`}
@@ -5056,252 +5068,6 @@ const analyzeFood = async () => {
           </div>
         )}
 
-        {/* Delete Confirmation Modal */}
-        {showDeleteConfirmModal && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div
-              className={`bg-[var(--app-card-bg)] p-6 rounded-lg shadow-xl text-center w-full max-w-sm border border-[var(--app-border-color)]`}
-            >
-              <p
-                className={`text-lg font-semibold mb-4 text-[var(--app-normal-text)]`}
-              >
-                Are you sure?
-              </p>
-              <p className={`text-sm text-[var(--app-medium-text)] mb-6`}>
-                This action cannot be undone.
-              </p>
-              <div className="flex justify-center space-x-4">
-                <button
-                  onClick={confirmDelete}
-                  className={`bg-[var(--app-button-danger-bg)] text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
-                >
-                  Yes, Delete
-                </button>
-                <button
-                  onClick={cancelDelete}
-                  className={`bg-[var(--app-button-secondary-bg)] text-[var(--app-button-secondary-text)] font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Meal Details Modal */}
-        {selectedMealForView && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
-            <div
-              className={`bg-[var(--app-card-bg)] p-6 rounded-lg shadow-xl w-full max-w-md border border-[var(--app-border-color)] relative`}
-            >
-              <button
-                onClick={() => setSelectedMealForView(null)}
-                className="absolute top-2 right-2 p-1 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                title="Close"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-              <h3
-                className={`text-xl font-bold mb-4 text-[var(--app-strong-text)]`}
-              >
-                {selectedMealForView.foodItem}
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-[var(--app-normal-text)]">
-                <p>
-                  <strong className={`text-[var(--app-strong-text)]`}>
-                    Calories:
-                  </strong>{" "}
-                  {parseNutrientValue(selectedMealForView.calories).toFixed(1)}{" "}
-                  {selectedMealForView.calories?.unit || "kcal"}
-                </p>
-                <p>
-                  <strong className={`text-[var(--app-strong-text)]`}>
-                    Protein:
-                  </strong>{" "}
-                  {parseNutrientValue(selectedMealForView.protein).toFixed(1)}{" "}
-                  {selectedMealForView.protein?.unit || "g"}
-                </p>
-                <p>
-                  <strong className={`text-[var(--app-strong-text)]`}>
-                    Fats:
-                  </strong>{" "}
-                  {parseNutrientValue(selectedMealForView.fats).toFixed(1)}{" "}
-                  {selectedMealForView.fats?.unit || "g"}
-                </p>
-                <p>
-                  <strong className={`text-[var(--app-strong-text)]`}>
-                    Sugars:
-                  </strong>{" "}
-                  {parseNutrientValue(selectedMealForView.sugars).toFixed(1)}{" "}
-                  {selectedMealForView.sugars?.unit || "g"}
-                </p>
-              </div>
-              <div className="mt-4 pt-4 border-t border-[var(--app-border-color)] text-sm">
-                <p><strong className={`text-[var(--app-strong-text)]`}>Meal Type:</strong> {selectedMealForView.mealType}</p>
-                <p className="mt-1"><strong className={`text-[var(--app-strong-text)]`}>Logged on:</strong> {new Date(selectedMealForView.timestamp).toLocaleString()}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Welcome Guide Modal */}
-        {showWelcomeGuide && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
-            <div
-              className={`bg-[var(--app-card-bg)] p-6 rounded-lg shadow-xl w-full max-w-md border border-[var(--app-border-color)] flex flex-col`}
-            >
-              <h3
-                className={`text-xl font-bold mb-4 text-[var(--app-strong-text)]`}
-              >
-                {welcomeGuideSteps[welcomeGuideStep].title}
-              </h3>
-              <p
-                className={`text-base text-[var(--app-normal-text)] mb-6 flex-grow`}
-              >
-                {welcomeGuideSteps[welcomeGuideStep].content}
-              </p>
-              <div className="flex justify-between items-center">
-                <div>
-                  {welcomeGuideStep > 0 && (
-                    <button
-                      onClick={() => setWelcomeGuideStep((s) => s - 1)}
-                      className={`bg-[var(--app-button-secondary-bg)] text-[var(--app-button-secondary-text)] font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
-                    >
-                      Previous
-                    </button>
-                  )}
-                </div>
-                <div className="text-sm text-[var(--app-light-text)]">
-                  Step {welcomeGuideStep + 1} of {welcomeGuideSteps.length}
-                </div>
-                <div>
-                  {welcomeGuideStep < welcomeGuideSteps.length - 1 ? (
-                    <button
-                      onClick={() => setWelcomeGuideStep((s) => s + 1)}
-                      className={`bg-[var(--app-button-primary-bg)] text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
-                    >
-                      Next
-                    </button>
-                  ) : (
-                    <button
-                      onClick={handleDismissWelcomeGuide}
-                      className={`bg-[var(--app-button-success-bg)] text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
-                    >
-                      Get Started!
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Monthly Weight Check-in Modal */}
-        {showWeightCheckInModal && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
-            <div
-              className={`bg-[var(--app-card-bg)] p-6 rounded-lg shadow-xl w-full max-w-md border border-[var(--app-border-color)] text-center`}
-            >
-              {!checkInResult ? (
-                <>
-                  <h3
-                    className={`text-xl font-bold mb-2 text-[var(--app-strong-text)]`}
-                  >
-                    Monthly Weight Check-In
-                  </h3>
-                  <p
-                    className={`text-base text-[var(--app-normal-text)] mb-4`}
-                  >
-                    Your goal is weight loss. Let's check your progress! What is
-                    your current weight in kg?
-                  </p>
-                  <input
-                    type="number"
-                    step="0.1"
-                    className={`w-full p-2 mb-4 bg-[var(--app-card-bg)] border border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm text-[var(--app-normal-text)] text-center`}
-                    placeholder={`e.g., ${weight > 0 ? weight : 70}`}
-                    value={checkInWeight}
-                    onChange={(e) => setCheckInWeight(e.target.value)}
-                  />
-                  <div className="flex justify-center space-x-4">
-                    <button
-                      onClick={handleWeightCheckInSubmit}
-                      className={`bg-[var(--app-button-primary-bg)] text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
-                      disabled={!checkInWeight}
-                    >
-                      Submit Weight
-                    </button>
-                    <button
-                      onClick={handleSkipCheckIn}
-                      className={`bg-[var(--app-button-secondary-bg)] text-[var(--app-button-secondary-text)] font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
-                    >
-                      Skip for now
-                    </button>
-                  </div>
-                </>
-              ) : checkInResult === "congrats" ? (
-                <>
-                  <h3
-                    className={`text-xl font-bold mb-2 text-green-500`}
-                  >
-                    🎉 Congratulations! 🎉
-                  </h3>
-                  <p
-                    className={`text-base text-[var(--app-normal-text)] mb-4`}
-                  >
-                    You've reached your target weight of {targetWeight} kg or
-                    less! Your new weight is{" "}
-                    <strong>{parseFloat(checkInWeight).toFixed(1)} kg</strong>.
-                    Amazing work!
-                  </p>
-                  <button
-                    onClick={handleCloseCheckInModal}
-                    className={`bg-[var(--app-button-success-bg)] text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
-                  >
-                    Awesome!
-                  </button>
-                </>
-              ) : (
-                // 'keep-trying'
-                <>
-                  <h3
-                    className={`text-xl font-bold mb-2 text-yellow-500`}
-                  >
-                    Keep Going!
-                  </h3>
-                  <p
-                    className={`text-base text-[var(--app-normal-text)] mb-4`}
-                  >
-                    Your new weight is{" "}
-                    <strong>{parseFloat(checkInWeight).toFixed(1)} kg</strong>.
-                    You haven't reached your target of {targetWeight} kg yet,
-                    but every step counts. Keep up the great effort!
-                  </p>
-                  <button
-                    onClick={handleCloseCheckInModal}
-                    className={`bg-[var(--app-button-primary-bg)] text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
-                  >
-                    Got It
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
         <footer
           className={`mt-8 pt-4 border-t ${
             themeClasses.border
@@ -5313,8 +5079,254 @@ const analyzeFood = async () => {
             <a href="mailto:help.fitness.tracker@gmail.com" className={`${themeClasses.brandText} hover:underline`}>help.fitness.tracker@gmail.com</a>
           </p>
         </footer>
+        </div>
       </div>
-    </div>
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirmModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div
+            className={`bg-[var(--app-card-bg)] p-6 rounded-lg shadow-xl text-center w-full max-w-sm border border-[var(--app-border-color)] animate-fadeInScale`}
+          >
+            <p
+              className={`text-lg font-semibold mb-4 text-[var(--app-normal-text)]`}
+            >
+              Are you sure?
+            </p>
+            <p className={`text-sm text-[var(--app-medium-text)] mb-6`}>
+              This action cannot be undone.
+            </p>
+            <div className="flex justify-center space-x-4">
+              <button
+                onClick={confirmDelete}
+                className={`bg-[var(--app-button-danger-bg)] text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+              >
+                Yes, Delete
+              </button>
+              <button
+                onClick={cancelDelete}
+                className={`bg-[var(--app-button-secondary-bg)] text-[var(--app-button-secondary-text)] font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Meal Details Modal */}
+      {selectedMealForView && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div
+            className={`bg-[var(--app-card-bg)] p-6 rounded-lg shadow-xl w-full max-w-md border border-[var(--app-border-color)] relative animate-fadeInScale`}
+          >
+            <button
+              onClick={() => setSelectedMealForView(null)}
+              className="absolute top-2 right-2 p-1 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              title="Close"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+            <h3
+              className={`text-xl font-bold mb-4 text-[var(--app-strong-text)]`}
+            >
+              {selectedMealForView.foodItem}
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-[var(--app-normal-text)]">
+              <p>
+                <strong className={`text-[var(--app-strong-text)]`}>
+                  Calories:
+                </strong>{" "}
+                {parseNutrientValue(selectedMealForView.calories).toFixed(1)}{" "}
+                {selectedMealForView.calories?.unit || "kcal"}
+              </p>
+              <p>
+                <strong className={`text-[var(--app-strong-text)]`}>
+                  Protein:
+                </strong>{" "}
+                {parseNutrientValue(selectedMealForView.protein).toFixed(1)}{" "}
+                {selectedMealForView.protein?.unit || "g"}
+              </p>
+              <p>
+                <strong className={`text-[var(--app-strong-text)]`}>
+                  Fats:
+                </strong>{" "}
+                {parseNutrientValue(selectedMealForView.fats).toFixed(1)}{" "}
+                {selectedMealForView.fats?.unit || "g"}
+              </p>
+              <p>
+                <strong className={`text-[var(--app-strong-text)]`}>
+                  Sugars:
+                </strong>{" "}
+                {parseNutrientValue(selectedMealForView.sugars).toFixed(1)}{" "}
+                {selectedMealForView.sugars?.unit || "g"}
+              </p>
+            </div>
+            <div className="mt-4 pt-4 border-t border-[var(--app-border-color)] text-sm text-[var(--app-normal-text)]">
+              <p><strong className={`text-[var(--app-strong-text)]`}>Meal Type:</strong> {selectedMealForView.mealType}</p>
+              <p className="mt-1"><strong className={`text-[var(--app-strong-text)]`}>Logged on:</strong> {new Date(selectedMealForView.timestamp).toLocaleString()}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Welcome Guide Modal */}
+      {showWelcomeGuide && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div
+            className={`bg-[var(--app-card-bg)] p-6 rounded-lg shadow-xl w-full max-w-md border border-[var(--app-border-color)] flex flex-col animate-fadeInScale`}
+          >
+            <h3
+              className={`text-xl font-bold mb-4 text-[var(--app-strong-text)]`}
+            >
+              {welcomeGuideSteps[welcomeGuideStep].title}
+            </h3>
+            <p
+              className={`text-base text-[var(--app-normal-text)] mb-6 flex-grow`}
+            >
+              {welcomeGuideSteps[welcomeGuideStep].content}
+            </p>
+            <div className="flex justify-between items-center">
+              <div>
+                {welcomeGuideStep > 0 && (
+                  <button
+                    onClick={() => setWelcomeGuideStep((s) => s - 1)}
+                    className={`bg-[var(--app-button-secondary-bg)] text-[var(--app-button-secondary-text)] font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+                  >
+                    Previous
+                  </button>
+                )}
+              </div>
+              <div className="text-sm text-[var(--app-light-text)]">
+                Step {welcomeGuideStep + 1} of {welcomeGuideSteps.length}
+              </div>
+              <div>
+                {welcomeGuideStep < welcomeGuideSteps.length - 1 ? (
+                  <button
+                    onClick={() => setWelcomeGuideStep((s) => s + 1)}
+                    className={`bg-[var(--app-button-primary-bg)] text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+                  >
+                    Next
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleDismissWelcomeGuide}
+                    className={`bg-[var(--app-button-success-bg)] text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+                  >
+                    Get Started!
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Monthly Weight Check-in Modal */}
+      {showWeightCheckInModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div
+            className={`bg-[var(--app-card-bg)] p-6 rounded-lg shadow-xl w-full max-w-md border border-[var(--app-border-color)] text-center animate-fadeInScale`}
+          >
+            {!checkInResult ? (
+              <>
+                <h3
+                  className={`text-xl font-bold mb-2 text-[var(--app-strong-text)]`}
+                >
+                  Monthly Weight Check-In
+                </h3>
+                <p
+                  className={`text-base text-[var(--app-normal-text)] mb-4`}
+                >
+                  Your goal is weight loss. Let's check your progress! What is
+                  your current weight in kg?
+                </p>
+                <input
+                  type="number"
+                  step="0.1"
+                  className={`w-full p-2 mb-4 bg-[var(--app-card-bg)] border border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm text-[var(--app-normal-text)] text-center`}
+                  placeholder={`e.g., ${weight > 0 ? weight : 70}`}
+                  value={checkInWeight}
+                  onChange={(e) => setCheckInWeight(e.target.value)}
+                />
+                <div className="flex justify-center space-x-4">
+                  <button
+                    onClick={handleWeightCheckInSubmit}
+                    className={`bg-[var(--app-button-primary-bg)] text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+                    disabled={!checkInWeight}
+                  >
+                    Submit Weight
+                  </button>
+                  <button
+                    onClick={handleSkipCheckIn}
+                    className={`bg-[var(--app-button-secondary-bg)] text-[var(--app-button-secondary-text)] font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+                  >
+                    Skip for now
+                  </button>
+                </div>
+              </>
+            ) : checkInResult === "congrats" ? (
+              <>
+                <h3
+                  className={`text-xl font-bold mb-2 text-green-500`}
+                >
+                  🎉 Congratulations! 🎉
+                </h3>
+                <p
+                  className={`text-base text-[var(--app-normal-text)] mb-4`}
+                >
+                  You've reached your target weight of {targetWeight} kg or
+                  less! Your new weight is{" "}
+                  <strong>{parseFloat(checkInWeight).toFixed(1)} kg</strong>.
+                  Amazing work!
+                </p>
+                <button
+                  onClick={handleCloseCheckInModal}
+                  className={`bg-[var(--app-button-success-bg)] text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+                >
+                  Awesome!
+                </button>
+              </>
+            ) : (
+              // 'keep-trying'
+              <>
+                <h3
+                  className={`text-xl font-bold mb-2 text-yellow-500`}
+                >
+                  Keep Going!
+                </h3>
+                <p
+                  className={`text-base text-[var(--app-normal-text)] mb-4`}
+                >
+                  Your new weight is{" "}
+                  <strong>{parseFloat(checkInWeight).toFixed(1)} kg</strong>.
+                  You haven't reached your target of {targetWeight} kg yet,
+                  but every step counts. Keep up the great effort!
+                </p>
+                <button
+                  onClick={handleCloseCheckInModal}
+                  className={`bg-[var(--app-button-primary-bg)] text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+                >
+                  Got It
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
