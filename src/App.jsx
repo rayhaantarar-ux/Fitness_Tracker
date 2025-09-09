@@ -156,6 +156,7 @@ function App() {
   const foodEntriesUnsubscribe = useRef(null);
   const userProfileUnsubscribe = useRef(null);
   const workoutEntriesUnsubscribe = useRef(null); // New ref for workout entries
+  const analyzeFoodAbortController = useRef(null); // For cancelling food analysis
 
   // Helper function to safely parse nutrient values from Firestore entries
   const parseNutrientValue = (nutrient) => {
@@ -1259,6 +1260,13 @@ useEffect(() => {
   };
 
 const analyzeFood = async () => {
+    if (loading) {
+      if (analyzeFoodAbortController.current) {
+        analyzeFoodAbortController.current.abort();
+      }
+      return;
+    }
+
     setError("");
     setLoading(true);
     setNutritionalInfo(null); // Clear previous analysis result
@@ -1276,6 +1284,9 @@ const analyzeFood = async () => {
       setLoading(false);
       return;
     }
+
+    const controller = new AbortController();
+    analyzeFoodAbortController.current = controller;
 
     const prompt = `Please analyze this food item. Based on the description: "${foodDescription}", and the image if provided, provide an estimate for the following nutritional values per serving in grams or calories (use calories for energy, grams for protein, fats, and sugars), and include a confidence level for each estimate ("high", "medium", "low"). Provide the response in JSON format according to this schema: { "foodItem": "string", "calories": { "value": "number", "unit": "string", "confidence": "string" }, "protein": { "value": "number", "unit": "string", "confidence": "string" }, "fats": { "value": "number", "unit": "string", "confidence": "string" }, "sugars": { "value": "number", "unit": "string", "confidence": "string" } }`;
 
@@ -1295,6 +1306,7 @@ const analyzeFood = async () => {
           "Could not process your image. Please try again or use description only."
         );
         setLoading(false);
+        analyzeFoodAbortController.current = null;
         return;
       }
     }
@@ -1366,6 +1378,7 @@ const analyzeFood = async () => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
+          signal: controller.signal,
         });
 
         if (!response.ok) {
@@ -1410,6 +1423,11 @@ const analyzeFood = async () => {
           throw new Error("Could not get nutritional info. Please try again.");
         }
       } catch (e) {
+        if (e.name === 'AbortError') {
+            console.log('Fetch aborted by user.');
+            setError("Food analysis cancelled.");
+            break; // Exit retry loop
+        }
         console.error(`Error analyzing food (attempt ${retryCount + 1}):`, e);
         retryCount++;
         if (retryCount >= maxRetries) {
@@ -1422,6 +1440,7 @@ const analyzeFood = async () => {
       }
     }
     setLoading(false); // Set loading to false AFTER the loop completes
+    analyzeFoodAbortController.current = null;
   };
 
   const dailyChartData = [
@@ -2568,7 +2587,7 @@ const suggestHealthyWeightRange = async () => {
                   } text-white font-semibold py-2 sm:py-3 px-3 sm:px-4 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${isDarkMode ? 'hover:shadow-[0_0_15px_rgba(96,165,250,0.4)]' : 'hover:shadow-[0_0_15px_rgba(59,130,246,0.4)]'} focus:outline-none focus:ring-2 ${
                     isDarkMode ? "focus:ring-blue-400" : "focus:ring-blue-500"
                   } focus:ring-offset-2 flex items-center justify-center gap-2 text-sm sm:text-base`}
-                  disabled={loading || !isFirebaseReady || !userId}
+                  disabled={!isFirebaseReady || !userId}
                 >
                   {loading ? (
                     <>
@@ -2592,7 +2611,7 @@ const suggestHealthyWeightRange = async () => {
                           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                         ></path>
                       </svg>
-                      Analyzing...
+                      Cancel
                     </>
                   ) : (
                     <>
