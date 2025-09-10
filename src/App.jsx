@@ -2992,7 +2992,7 @@ const suggestHealthyWeightRange = async () => {
                         )}
                       </p>
                     </div>
-                    <div>
+                    <div className="col-span-2 sm:col-span-1">
                       <p
                         className={`text-xs sm:text-sm font-medium ${
                           isDarkMode ? "text-blue-200" : "text-blue-800"
