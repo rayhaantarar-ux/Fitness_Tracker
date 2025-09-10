@@ -64,7 +64,7 @@ function App() {
   const [dailyDisplayMode, setDailyDisplayMode] = useState("numbers");
 
   // States for History view in Tracking tab
-  const [historyDate, setHistoryDate] = useState(new Date().toLocaleDateString('en-CA')); // Default to today
+  const [historyDate, setHistoryDate] = useState(""); // Default to empty
   const [historyTotals, setHistoryTotals] = useState({ calories: 0, protein: 0, fats: 0, sugars: 0, carbs: 0 });
   const [historyEntries, setHistoryEntries] = useState([]);
 
@@ -717,11 +717,13 @@ useEffect(() => {
             setSuggestedWeightRange({}); // Reset to empty object
             setMaintenanceGoals({}); // Reset maintenance goals on logout
             setFoodEntries([]);
+            setWorkoutEntries([]); // Reset workout entries on logout
             setDailyTotals({ calories: 0, protein: 0, fats: 0, sugars: 0, carbs: 0, });
             setNutritionalInfo(null); // Clear last analysis result on logout
 
             // Reset theme mode to default light mode on logout
             setIsDarkMode(false);
+            setHistoryDate(""); // Reset history date on logout
 
             // Clean up old listeners to prevent memory leaks if user logs out/changes
             if (userProfileUnsubscribe.current) {
@@ -827,6 +829,7 @@ useEffect(() => {
 
             // Load dark mode state
             setIsDarkMode(data.isDarkMode || false); // Load dark mode state
+            setHistoryDate(data.historyDate || ""); // Load history date
           } else {
             console.log(
               "No user profile found in Firestore for userId:",
@@ -847,6 +850,7 @@ useEffect(() => {
             setMaintenanceGoals({}); // Reset maintenance goals for new user
             setMuscleGainGoals({}); // Reset muscle gain goals for new user
             setLastMonthlyCheckIn(null); // Reset monthly check-in for new user
+            setHistoryDate(""); // Reset history date for new user
             // Reset dark mode to default light mode
             setIsDarkMode(false);
 
@@ -1010,20 +1014,21 @@ useEffect(() => {
     }
 
     const handler = setTimeout(() => {
-      const hasProfileData =
+      // We only want to save if there's actual data to save, to avoid writing
+      // empty profiles to the database on initial load.
+      const hasProfileDataToSave =
         parseFloat(weight) > 0 ||
-        parseFloat(height) > 0 || // if weight or height has non-zero value
+        parseFloat(height) > 0 ||
         dob !== "" ||
-        gender !== "" || // if DOB or gender is set
+        gender !== "" ||
         (targetWeight && parseFloat(targetWeight) > 0) ||
-        targetDate !== "" || // if target data is set
+        targetDate !== "" ||
         Object.keys(recommendedDailyTargets || {}).length > 0 ||
-        Object.keys(suggestedWeightRange || {}).length > 0 || // if AI targets are set and are not empty
-        Object.keys(maintenanceGoals || {}).length > 0 || // If maintenance goals are set
-        Object.keys(muscleGainGoals || {}).length > 0 || // If muscle gain goals are set
-        isDarkMode; // Also save dark mode state itself
+        Object.keys(suggestedWeightRange || {}).length > 0 ||
+        Object.keys(maintenanceGoals || {}).length > 0 ||
+        Object.keys(muscleGainGoals || {}).length > 0;
 
-      if (db && userId && isFirebaseReady && hasProfileData) {
+      if (db && userId && isFirebaseReady && (hasProfileDataToSave || isDarkMode)) {
         const appId = "default-app-id"; // FIX: Use a constant string for appId
         const userProfileRef = doc(
           db,
@@ -1042,6 +1047,7 @@ useEffect(() => {
           suggestedWeightRange: suggestedWeightRange || {},
           maintenanceGoals: maintenanceGoals || {}, // Save maintenance goals
           muscleGainGoals: muscleGainGoals || {}, // Save muscle gain goals
+          historyDate, // Save history date
           isDarkMode, // Save dark mode state
         };
         console.log(
@@ -1091,16 +1097,7 @@ useEffect(() => {
         };
         attemptSave(maxRetries); // Start retries
       } else {
-        console.log(
-          "Not saving profile (debounced): Conditions not met (DB/User/FirebaseReady/ProfileData). db:",
-          !!db,
-          "userId:",
-          userId,
-          "isFirebaseReady:",
-          isFirebaseReady,
-          "hasProfileData:",
-          hasProfileData
-        ); // DEBUG LOG
+        // Not saving if not logged in or Firebase not ready
         setSaveStatusMessage(""); // Clear status if no conditions met for saving
       }
     }, 500); // Debounce for 500ms
@@ -1121,6 +1118,7 @@ useEffect(() => {
     suggestedWeightRange,
     maintenanceGoals,
     muscleGainGoals,
+    historyDate,
     isDarkMode,
     db,
     userId,
@@ -1191,6 +1189,7 @@ useEffect(() => {
       suggestedWeightRange: suggestedWeightRange || {},
       maintenanceGoals: maintenanceGoals || {}, // Save maintenance goals
       muscleGainGoals: muscleGainGoals || {}, // Save muscle gain goals
+      historyDate, // Save history date
       isDarkMode, // Save dark mode state
     };
     console.log("Attempting to save user profile (MANUAL):", profileData); // DEBUG LOG
@@ -1273,14 +1272,6 @@ const analyzeFood = async () => {
 
     if (!foodDescription && !foodImage) {
       setError("Please provide a description or an image of the food.");
-      setLoading(false);
-      return;
-    }
-
-    if (!db || !userId) {
-      setError(
-        'You must be logged in to save food entries. Please go to "About Me" tab and Register/Login.'
-      );
       setLoading(false);
       return;
     }
@@ -1411,15 +1402,26 @@ const analyzeFood = async () => {
 
           setNutritionalInfo(parsedJson); // Set analysis result
 
-          const appId = "default-app-id"; // FIXED: Use a constant string for appId
-          await addDoc(
-            collection(db, `artifacts/${appId}/users/${userId}/foodEntries`),
-            {
-              ...parsedJson,
-              mealType,
-              timestamp: new Date().toISOString(),
-            }
-          );
+          const newEntry = {
+            ...parsedJson,
+            mealType,
+            timestamp: new Date().toISOString(),
+          };
+
+          if (userId && db) {
+            const appId = "default-app-id"; // FIXED: Use a constant string for appId
+            await addDoc(
+              collection(db, `artifacts/${appId}/users/${userId}/foodEntries`),
+              newEntry
+            );
+          } else {
+            // Not logged in, update local state
+            const updatedEntries = [{ ...newEntry, id: `local-${Date.now()}` }, ...foodEntries];
+            const sortedEntries = updatedEntries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            setFoodEntries(sortedEntries);
+            const { daily: newDailyTotals } = calculateNutritionTotals(sortedEntries);
+            setDailyTotals(newDailyTotals);
+          }
 
           setFoodDescription("");
           setFoodImage(null);
@@ -1460,9 +1462,10 @@ const analyzeFood = async () => {
   ];
 
   const dailyPieChartData = [
-    { name: "Protein", value: dailyTotals.protein * 4, grams: dailyTotals.protein },
-    { name: "Fats", value: dailyTotals.fats * 9, grams: dailyTotals.fats },
-    { name: "Carbs", value: dailyTotals.carbs * 4, grams: dailyTotals.carbs },
+    { name: "Protein", value: dailyTotals.protein * 4, grams: dailyTotals.protein.toFixed(1) },
+    { name: "Fats", value: dailyTotals.fats * 9, grams: dailyTotals.fats.toFixed(1) },
+    { name: "Carbs", value: Math.max(0, dailyTotals.carbs - dailyTotals.sugars) * 4, grams: Math.max(0, dailyTotals.carbs - dailyTotals.sugars).toFixed(1) },
+    { name: "Sugars", value: dailyTotals.sugars * 4, grams: dailyTotals.sugars.toFixed(1) },
   ];
 
   const totalDailyMacroCalories =
@@ -1760,12 +1763,10 @@ const suggestHealthyWeightRange = async () => {
       if (
         !workoutType ||
         (durationNum <= 0 && (setsNum <= 0 || repsNum <= 0)) ||
-        !workoutDate ||
-        !userId ||
-        !db
+        !workoutDate
       ) {
         setWorkoutError(
-          "Please fill in workout type, date, and either duration OR sets & reps. Ensure you are logged in."
+          "Please fill in workout type, date, and either duration OR sets & reps."
         );
         return;
       }
@@ -1834,13 +1835,7 @@ const suggestHealthyWeightRange = async () => {
       }
 
       // Now, always log the workout
-      const appId = "default-app-id";
-      const workoutColRef = collection(
-        db,
-        `artifacts/${appId}/users/${userId}/workoutEntries`
-      );
-
-      const newWorkout = {
+      const newWorkoutData = {
         workoutType,
         workoutDuration: durationNum,
         workoutSets: setsNum,
@@ -1851,7 +1846,18 @@ const suggestHealthyWeightRange = async () => {
         timestamp: new Date().toISOString(),
       };
 
-      await addDoc(workoutColRef, newWorkout);
+      if (userId && db) {
+        const appId = "default-app-id";
+        const workoutColRef = collection(
+          db,
+          `artifacts/${appId}/users/${userId}/workoutEntries`
+        );
+        await addDoc(workoutColRef, newWorkoutData);
+      } else {
+        // Not logged in, update local state
+        const newWorkoutWithId = { ...newWorkoutData, id: `local-${Date.now()}` };
+        setWorkoutEntries(prev => [newWorkoutWithId, ...prev].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)));
+      }
 
       // Reset form
       setWorkoutType("");
@@ -2316,6 +2322,20 @@ const suggestHealthyWeightRange = async () => {
           </button>
         </div>
 
+        {!userId && isFirebaseReady && (
+          <div
+            className={`mb-4 p-3 bg-[var(--app-alert-orange-bg)] border-l-4 border-[var(--app-alert-orange-border)] text-[var(--app-alert-orange-text)] rounded-r-lg animate-fadeIn`}
+            role="alert"
+          >
+            <p className="font-bold">You are not logged in.</p>
+            <p className="text-sm">
+              Your data is not being saved. Please go to the{" "}
+              <button onClick={() => setSelectedTab('aboutMe')} className="font-semibold underline hover:text-[var(--app-strong-text)]">About Me</button>{" "}
+              tab to log in or register to save your progress.
+            </p>
+          </div>
+        )}
+
         {error && (
           <div
             className={`mb-3 sm:mb-4 p-2 sm:p-3 ${
@@ -2472,9 +2492,7 @@ const suggestHealthyWeightRange = async () => {
         {/* Add Meal Tab Content */}
         {selectedTab === "addMeal" && (
           <div className="animate-fadeInUp">
-            {userId ? (
-              <>
-                <div className="mb-4 sm:mb-6">
+            <div className="mb-4 sm:mb-6">
                   <label
                     htmlFor="mealType"
                     className={`block text-sm font-medium ${
@@ -2582,7 +2600,7 @@ const suggestHealthyWeightRange = async () => {
                   } focus:outline-none focus:ring-2 ${
                     isDarkMode ? "focus:ring-blue-400" : "focus:ring-blue-500"
                   } focus:ring-offset-2 flex items-center justify-center gap-2 text-sm sm:text-base`}
-                  disabled={!isFirebaseReady || !userId}
+                  disabled={!isFirebaseReady}
                 >
                   {loading ? (
                     <>
@@ -2628,28 +2646,13 @@ const suggestHealthyWeightRange = async () => {
                     </>
                   )}
                 </button>
-              </>
-            ) : (
-              <div
-                className={`bg-[var(--app-alert-orange-bg)] border-l-4 border-[var(--app-alert-orange-border)] text-[var(--app-alert-orange-text)] p-3 sm:p-4`}
-                role="alert"
-              >
-                <p className="font-bold text-sm sm:text-base">Login Required</p>
-                <p className="text-xs sm:text-sm">
-                  Please go to the "About Me" tab to register or log in to add
-                  and track your meals.
-                </p>
-              </div>
-            )}
           </div>
         )}
 
         {/* Tracking Tab Content */}
         {selectedTab === "tracking" && (
           <div className="mt-4 animate-fadeInUp">
-            {userId ? (
-              <>
-                {/* Moved Nutritional Info Display here */}
+            {/* Moved Nutritional Info Display here */}
                 {nutritionalInfo && (
                   <div
                     className={`mb-4 sm:mb-6 p-3 sm:p-4 ${
@@ -3122,7 +3125,7 @@ const suggestHealthyWeightRange = async () => {
                           </Pie>
                           <Tooltip
                             formatter={(value, name, props) => [
-                              `${props.payload.grams.toFixed(1)} g (${
+                              `${props.payload.grams} g (${
                                 totalDailyMacroCalories > 0 ? ((value / totalDailyMacroCalories) * 100).toFixed(0) : 0
                               }%)`,
                               name,
@@ -3278,7 +3281,7 @@ const suggestHealthyWeightRange = async () => {
                         <p className={`text-xs sm:text-sm font-medium ${isDarkMode ? "text-blue-200" : "text-blue-800"}`}>Sugars</p>
                         <p className={`text-lg sm:text-xl font-bold ${isDarkMode ? "text-blue-100" : "text-blue-900"}`}>{historyTotals.sugars.toFixed(1)} g</p>
                       </div>
-                      <div>
+                      <div className="col-span-2 sm:col-span-1">
                         <p className={`text-xs sm:text-sm font-medium ${isDarkMode ? "text-blue-200" : "text-blue-800"}`}>Carbs</p>
                         <p className={`text-lg sm:text-xl font-bold ${isDarkMode ? "text-blue-100" : "text-blue-900"}`}>{historyTotals.carbs.toFixed(1)} g</p>
                       </div>
@@ -3331,19 +3334,6 @@ const suggestHealthyWeightRange = async () => {
                     No entries found for this date.
                   </p>
                 )}
-              </>
-            ) : (
-              <div
-                className={`bg-[var(--app-alert-orange-bg)] border-l-4 border-[var(--app-alert-orange-border)] text-[var(--app-alert-orange-text)] p-3 sm:p-4`}
-                role="alert"
-              >
-                <p className="font-bold text-sm sm:text-base">Login Required</p>
-                <p className="text-xs sm:text-sm">
-                  Please go to the "About Me" tab to register or log in to view
-                  your tracking data.
-                </p>
-              </div>
-            )}
           </div>
         )}
 
@@ -3832,8 +3822,7 @@ const suggestHealthyWeightRange = async () => {
               </button>
             </div>
 
-            {userId ? (
-              (parseFloat(weight) || 0) <= 0 ||
+            {(parseFloat(weight) || 0) <= 0 ||
               isNaN(parseFloat(weight)) ||
               (parseFloat(height) || 0) <= 0 ||
               isNaN(parseFloat(height)) ||
@@ -3889,8 +3878,7 @@ const suggestHealthyWeightRange = async () => {
                             (parseFloat(age) || 0) <= 0 ||
                             (parseFloat(height) || 0) <= 0 ||
                             !gender ||
-                            !isFirebaseReady ||
-                            !userId
+                            !isFirebaseReady
                           }
                         >
                           {suggestingWeight ? (
@@ -4129,8 +4117,7 @@ const suggestHealthyWeightRange = async () => {
                             (parseFloat(height) || 0) <= 0 ||
                             (parseFloat(age) || 0) <= 0 ||
                             !gender ||
-                            !isFirebaseReady ||
-                            !userId
+                            !isFirebaseReady
                           }
                         >
                           {calculatingTargets ? (
@@ -4294,8 +4281,7 @@ const suggestHealthyWeightRange = async () => {
                             (parseFloat(weight) || 0) <= 0 ||
                             (parseFloat(height) || 0) <= 0 ||
                             !gender ||
-                            !isFirebaseReady ||
-                            !userId
+                            !isFirebaseReady
                           }
                         >
                           {gettingMaintenanceGoals ? (
@@ -4459,8 +4445,7 @@ const suggestHealthyWeightRange = async () => {
                             (parseFloat(weight) || 0) <= 0 ||
                             (parseFloat(height) || 0) <= 0 ||
                             !gender ||
-                            !isFirebaseReady ||
-                            !userId
+                            !isFirebaseReady
                           }
                         >
                           {gettingMuscleGainGoals ? (
@@ -4605,19 +4590,7 @@ const suggestHealthyWeightRange = async () => {
                     </div>
                   )}
                 </>
-              )
-            ) : (
-              <div
-                className={`bg-[var(--app-alert-orange-bg)] border-l-4 border-[var(--app-alert-orange-border)] text-[var(--app-alert-orange-text)] p-3 sm:p-4 rounded-lg`}
-                role="alert"
-              >
-                <p className="font-bold text-sm sm:text-base">Login Required</p>
-                <p className="text-xs sm:text-sm">
-                  Please go to the "About Me" tab to register or log in to set
-                  and track your targets.
-                </p>
-              </div>
-            )}
+              )}
           </div>
         )}
 
@@ -4629,9 +4602,7 @@ const suggestHealthyWeightRange = async () => {
             >
               Log Your Workout
             </h2>
-            {userId ? (
-              <>
-                <div
+            <div
                   className={`bg-[var(--app-card-bg-light)] p-4 rounded-xl shadow-md mb-4 sm:mb-6 text-[var(--app-normal-text)]`}
                 >
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -4738,7 +4709,6 @@ const suggestHealthyWeightRange = async () => {
                     onClick={addWorkout}
                     className={`w-full bg-[var(--app-button-primary-bg)] text-[var(--app-button-primary-text)] font-semibold py-2 sm:py-3 px-3 sm:px-4 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${isDarkMode ? 'hover:shadow-[0_0_15px_rgba(96,165,250,0.4)]' : 'hover:shadow-[0_0_15px_rgba(59,130,246,0.4)]'} focus:outline-none focus:ring-2 focus:ring-[var(--app-input-focus-ring)] focus:ring-offset-2 flex items-center justify-center gap-2 text-sm sm:text-base`}
                     disabled={addingWorkout ||
-                        !userId ||
                         !workoutType ||
                         !workoutDate ||
                         !((parseFloat(workoutDuration) || 0) > 0 ||
@@ -4993,19 +4963,6 @@ const suggestHealthyWeightRange = async () => {
                     No workouts found for this date.
                   </p>
                 )}
-              </>
-            ) : (
-              <div
-                className={`bg-[var(--app-alert-orange-bg)] border-l-4 border-[var(--app-alert-orange-border)] text-[var(--app-alert-orange-text)] p-3 sm:p-4 rounded-lg`}
-                role="alert"
-              >
-                <p className="font-bold text-sm sm:text-base">Login Required</p>
-                <p className="text-xs sm:text-sm">
-                  Please go to the "About Me" tab to register or log in to log
-                  your workouts.
-                </p>
-              </div>
-            )}
           </div>
         )}
 
@@ -5017,9 +4974,7 @@ const suggestHealthyWeightRange = async () => {
             >
               AI Chef: Personalized Recipes
             </h2>
-            {userId ? (
-              <>
-                <div
+            <div
                   className={`bg-[var(--app-card-bg-light)] p-4 rounded-xl shadow-md mb-4 sm:mb-6`}
                 >
                   <p className={`text-sm ${themeClasses.mediumText} mb-2`}>
@@ -5081,7 +5036,7 @@ const suggestHealthyWeightRange = async () => {
                     } font-semibold py-2 sm:py-3 px-3 sm:px-4 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${isDarkMode ? 'hover:shadow-[0_0_15px_rgba(96,165,250,0.4)]' : 'hover:shadow-[0_0_15px_rgba(59,130,246,0.4)]'} focus:outline-none focus:ring-2 ${
                       isDarkMode ? "focus:ring-blue-400" : "focus:ring-blue-500"
                     } focus:ring-offset-2 flex items-center justify-center gap-2 text-sm sm:text-base mt-4`}
-                    disabled={generatingRecipe || !userId || !chefPrompt}
+                    disabled={generatingRecipe || !chefPrompt}
                   >
                     {generatingRecipe ? (
                       <>
@@ -5153,19 +5108,6 @@ const suggestHealthyWeightRange = async () => {
                     ></div>
                   </div>
                 )}
-              </>
-            ) : (
-              <div
-                className={`bg-[var(--app-alert-orange-bg)] border-l-4 border-[var(--app-alert-orange-border)] text-[var(--app-alert-orange-text)] p-3 sm:p-4 rounded-lg`}
-                role="alert"
-              >
-                <p className="font-bold text-sm sm:text-base">Login Required</p>
-                <p className="text-xs sm:text-sm">
-                  Please go to the "About Me" tab to register or log in to use
-                  the AI Chef.
-                </p>
-              </div>
-            )}
           </div>
         )}
 
