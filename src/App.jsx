@@ -2797,7 +2797,18 @@ const suggestHealthyWeightRange = async () => {
                           Carbs:
                         </strong>{" "}
                         {parseNutrientValue(nutritionalInfo.carbs).toFixed(1)}{" "}
-                        {nutritionalInfo.carbs?.unit || "g"}
+                        {nutritionalInfo.carbs?.unit || "g"}{" "}
+                        <span
+                          className={`text-xs ml-1 px-1 py-0.5 rounded-full ${
+                            nutritionalInfo.carbs?.confidence === "high"
+                              ? "bg-indigo-200 text-indigo-800"
+                              : nutritionalInfo.carbs?.confidence === "medium"
+                              ? "bg-yellow-200 text-yellow-800"
+                              : "bg-red-200 text-red-800"
+                          }`}
+                        >
+                          ({nutritionalInfo.carbs?.confidence || "N/A"})
+                        </span>
                       </p>
                       <p
                         className={`${isDarkMode ? "text-gray-200" : "text-gray-800"}`}
@@ -5381,3 +5392,4 @@ const suggestHealthyWeightRange = async () => {
 }
 
 export default App;
+1
