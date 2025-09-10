@@ -64,7 +64,7 @@ function App() {
   const [dailyDisplayMode, setDailyDisplayMode] = useState("numbers");
 
   // States for History view in Tracking tab
-  const [historyDate, setHistoryDate] = useState(new Date().toISOString().split("T")[0]); // Default to today
+  const [historyDate, setHistoryDate] = useState(new Date().toLocaleDateString('en-CA')); // Default to today
   const [historyTotals, setHistoryTotals] = useState({ calories: 0, protein: 0, fats: 0, sugars: 0, carbs: 0 });
   const [historyEntries, setHistoryEntries] = useState([]);
 
@@ -106,13 +106,13 @@ function App() {
   const [workoutSets, setWorkoutSets] = useState(""); // New state for sets
   const [workoutReps, setWorkoutReps] = useState(""); // New state for reps
   const [workoutNotes, setWorkoutNotes] = useState("");
-  const [workoutDate, setWorkoutDate] = useState(new Date().toISOString().split('T')[0]);
+  const [workoutDate, setWorkoutDate] = useState(new Date().toLocaleDateString('en-CA'));
   const [workoutEntries, setWorkoutEntries] = useState([]);
   const [addingWorkout, setAddingWorkout] = useState(false);
   const [workoutError, setWorkoutError] = useState("");
 
   // States for Workout History
-  const [workoutHistoryDate, setWorkoutHistoryDate] = useState(new Date().toISOString().split('T')[0]); // Default to today
+  const [workoutHistoryDate, setWorkoutHistoryDate] = useState(new Date().toLocaleDateString('en-CA')); // Default to today
   const [workoutHistoryEntries, setWorkoutHistoryEntries] = useState([]);
   const [workoutHistoryTotalCalories, setWorkoutHistoryTotalCalories] = useState(0);
 
@@ -1288,7 +1288,7 @@ const analyzeFood = async () => {
     const controller = new AbortController();
     analyzeFoodAbortController.current = controller;
 
-    const prompt = `Please analyze this food item. Based on the description: "${foodDescription}", and the image if provided, provide an estimate for the following nutritional values per serving in grams or calories (use calories for energy, grams for protein, fats, and sugars), and include a confidence level for each estimate ("high", "medium", "low"). Provide the response in JSON format according to this schema: { "foodItem": "string", "calories": { "value": "number", "unit": "string", "confidence": "string" }, "protein": { "value": "number", "unit": "string", "confidence": "string" }, "fats": { "value": "number", "unit": "string", "confidence": "string" }, "sugars": { "value": "number", "unit": "string", "confidence": "string" } }`;
+    const prompt = `Please analyze this food item. Based on the description: "${foodDescription}", and the image if provided, provide an estimate for the following nutritional values per serving in grams or calories (use calories for energy, grams for protein, fats, sugars, and carbs), and include a confidence level for each estimate ("high", "medium", "low"). Provide the response in JSON format according to this schema: { "foodItem": "string", "calories": { "value": "number", "unit": "string", "confidence": "string" }, "protein": { "value": "number", "unit": "string", "confidence": "string" }, "fats": { "value": "number", "unit": "string", "confidence": "string" }, "sugars": { "value": "number", "unit": "string", "confidence": "string" }, "carbs": { "value": "number", "unit": "string", "confidence": "string" } }`;
 
     const parts = [{ text: prompt }];
     if (foodImage) {
@@ -1351,14 +1351,23 @@ const analyzeFood = async () => {
                 confidence: { type: "STRING" },
               },
             },
+            carbs: {
+              type: "OBJECT",
+              properties: {
+                value: { type: "NUMBER" },
+                unit: { type: "STRING" },
+                confidence: { type: "STRING" },
+              },
+            },
           },
-           required: ["foodItem", "calories", "protein", "fats", "sugars"],
+           required: ["foodItem", "calories", "protein", "fats", "sugars", "carbs"],
           propertyOrdering: [
             "foodItem",
             "calories",
             "protein",
             "fats",
             "sugars",
+            "carbs",
           ],
         },
       },
@@ -1417,7 +1426,7 @@ const analyzeFood = async () => {
           setFoodImagePreview("");
           setMealType("Breakfast");
           setSelectedTab("tracking"); // <<< THIS LINE WILL ENSURE TAB SWITCH >>>
-          setHistoryDate(new Date().toISOString().split('T')[0]); // Ensure history view is set to today
+          setHistoryDate(new Date().toLocaleDateString('en-CA')); // Ensure history view is set to today
           success = true; // Mark as success to exit loop
         } else {
           throw new Error("Could not get nutritional info. Please try again.");
@@ -1446,16 +1455,18 @@ const analyzeFood = async () => {
   const dailyChartData = [
     { name: "Protein", value: dailyTotals.protein },
     { name: "Fats", value: dailyTotals.fats },
+    { name: "Carbs", value: dailyTotals.carbs },
     { name: "Sugars", value: dailyTotals.sugars },
   ];
 
   const dailyPieChartData = [
     { name: "Protein", value: dailyTotals.protein * 4, grams: dailyTotals.protein },
     { name: "Fats", value: dailyTotals.fats * 9, grams: dailyTotals.fats },
-    { name: "Sugars", value: dailyTotals.sugars * 4, grams: dailyTotals.sugars },
+    { name: "Carbs", value: dailyTotals.carbs * 4, grams: dailyTotals.carbs },
   ];
 
-  const totalDailyMacroCalories = dailyTotals.protein * 4 + dailyTotals.fats * 9 + dailyTotals.sugars * 4;
+  const totalDailyMacroCalories =
+    dailyTotals.protein * 4 + dailyTotals.fats * 9 + dailyTotals.carbs * 4;
 
   const PIE_COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff7300"];
 
@@ -1741,138 +1752,120 @@ const suggestHealthyWeightRange = async () => {
     setWorkoutError("");
     setAddingWorkout(true);
 
-    const durationNum = parseFloat(workoutDuration) || 0;
-    const setsNum = parseInt(workoutSets, 10) || 0;
-    const repsNum = parseInt(workoutReps, 10) || 0;
+    try {
+      const durationNum = parseFloat(workoutDuration) || 0;
+      const setsNum = parseInt(workoutSets, 10) || 0;
+      const repsNum = parseInt(workoutReps, 10) || 0;
 
-    if (
-      !workoutType ||
-      (durationNum <= 0 && (setsNum <= 0 || repsNum <= 0)) ||
-      !workoutDate ||
-      !userId ||
-      !db
-    ) {
-      setWorkoutError(
-        "Please fill in workout type, date, and either duration OR sets & reps. Ensure you are logged in."
-      );
-      setAddingWorkout(false);
-      return;
-    }
-
-    // Basic validation for user profile data
-    const currentWeightNum = parseFloat(weight) || 0;
-    const heightNum = parseFloat(height) || 0;
-    const ageNum = parseFloat(age) || 0;
-
-    if (currentWeightNum <= 0 || heightNum <= 0 || ageNum <= 0 || !gender) {
-      setWorkoutError(
-        "Please ensure your weight, height, age, and gender are set in the 'About Me' tab for accurate calorie estimation."
-      );
-      setAddingWorkout(false);
-      return;
-    }
-
-    let workoutDetails = "";
-    if (setsNum > 0 && repsNum > 0) {
-      workoutDetails = `performing ${setsNum} sets of ${repsNum} reps of "${workoutType}"`;
-      if (durationNum > 0) {
-        workoutDetails += ` over a period of ${durationNum} minutes`;
-      }
-    } else {
-      workoutDetails = `a ${durationNum} minute workout of type "${workoutType}"`;
-    }
-
-    const prompt = `Based on a ${gender} who is ${ageNum} years old, weighs ${currentWeightNum} kg, and is ${heightNum} cm tall, estimate the calories burned for ${workoutDetails}. Provide the response in JSON format with a single key "caloriesBurned" which is a number.`;
-
-    const payload = {
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: "OBJECT",
-          properties: {
-            caloriesBurned: { type: "NUMBER" },
-          },
-          required: ["caloriesBurned"],
-        },
-      },
-    };
-
-    const apiKey = "AIzaSyBS-Ht9jg81rG2nPhJkz2nBc29f-YuBO5M";
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
-    let retryCount = 0;
-    const maxRetries = 3;
-    const initialDelay = 1000;
-
-    while (retryCount < maxRetries) {
-      try {
-        const response = await fetch(apiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        let caloriesBurned = 0;
-
-        if (
-          result.candidates &&
-          result.candidates.length > 0 &&
-          result.candidates[0].content &&
-          result.candidates[0].content.parts &&
-          result.candidates[0].content.parts.length > 0
-        ) {
-          const jsonText = result.candidates[0].content.parts[0].text;
-          const parsedJson = JSON.parse(jsonText);
-          caloriesBurned = parseFloat(parsedJson.caloriesBurned) || 0;
-        } else {
-          throw new Error("Could not get calorie estimation from AI.");
-        }
-
-        const appId = "default-app-id";
-        const workoutColRef = collection(
-          db,
-          `artifacts/${appId}/users/${userId}/workoutEntries`
+      if (
+        !workoutType ||
+        (durationNum <= 0 && (setsNum <= 0 || repsNum <= 0)) ||
+        !workoutDate ||
+        !userId ||
+        !db
+      ) {
+        setWorkoutError(
+          "Please fill in workout type, date, and either duration OR sets & reps. Ensure you are logged in."
         );
+        return;
+      }
 
-        const newWorkout = {
-          workoutType,
-          workoutDuration: parseFloat(workoutDuration) || 0,
-          workoutSets: parseInt(workoutSets, 10) || 0,
-          workoutReps: parseInt(workoutReps, 10) || 0,
-          workoutNotes,
-          workoutDate,
-          caloriesBurned, // Add the estimated calories
-          timestamp: new Date().toISOString(),
+      let caloriesBurned = 0;
+
+      // Check for profile data to decide if we can estimate calories
+      const currentWeightNum = parseFloat(weight) || 0;
+      const heightNum = parseFloat(height) || 0;
+      const ageNum = parseFloat(age) || 0;
+
+      if (currentWeightNum > 0 && heightNum > 0 && ageNum > 0 && gender) {
+        // Profile is complete, attempt to estimate calories
+        let workoutDetails = "";
+        if (setsNum > 0 && repsNum > 0) {
+          workoutDetails = `performing ${setsNum} sets of ${repsNum} reps of "${workoutType}"`;
+          if (durationNum > 0) {
+            workoutDetails += ` over a period of ${durationNum} minutes`;
+          }
+        } else {
+          workoutDetails = `a ${durationNum} minute workout of type "${workoutType}"`;
+        }
+
+        const prompt = `Based on a ${gender} who is ${ageNum} years old, weighs ${currentWeightNum} kg, and is ${heightNum} cm tall, estimate the calories burned for ${workoutDetails}. Provide the response in JSON format with a single key "caloriesBurned" which is a number.`;
+
+        const payload = {
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "OBJECT",
+              properties: { caloriesBurned: { type: "NUMBER" } },
+              required: ["caloriesBurned"],
+            },
+          },
         };
 
-        await addDoc(workoutColRef, newWorkout);
+        const apiKey = "AIzaSyBS-Ht9jg81rG2nPhJkz2nBc29f-YuBO5M";
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
-        // Reset form
-        setWorkoutType("");
-        setWorkoutDuration("");
-        setWorkoutSets("");
-        setWorkoutReps("");
-        setWorkoutNotes("");
-        setWorkoutError("");
-        setAddingWorkout(false);
-        return; // Exit on success
-      } catch (e) {
-        console.error(`Error adding workout (attempt ${retryCount + 1}):`, e);
-        retryCount++;
-        if (retryCount >= maxRetries) {
-          setWorkoutError(`Failed to add workout: ${e.message}`);
-          setAddingWorkout(false);
-        } else {
-          const delay = initialDelay * Math.pow(2, retryCount - 1);
-          await new Promise((res) => setTimeout(res, delay));
+        // This is a simplified fetch, you can add retries here if needed
+        try {
+          const response = await fetch(apiUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+          const result = await response.json();
+          if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
+            const jsonText = result.candidates[0].content.parts[0].text;
+            const parsedJson = JSON.parse(jsonText);
+            caloriesBurned = parseFloat(parsedJson.caloriesBurned) || 0;
+          } else {
+            throw new Error("Could not get calorie estimation from AI.");
+          }
+        } catch (e) {
+          console.error("Error estimating calories:", e);
+          setWorkoutError("Could not estimate calories. Workout logged without it.");
         }
+      } else {
+        // Profile is incomplete, skip estimation
+        setWorkoutError("Profile incomplete. Workout logged without calorie estimate.");
       }
+
+      // Now, always log the workout
+      const appId = "default-app-id";
+      const workoutColRef = collection(
+        db,
+        `artifacts/${appId}/users/${userId}/workoutEntries`
+      );
+
+      const newWorkout = {
+        workoutType,
+        workoutDuration: durationNum,
+        workoutSets: setsNum,
+        workoutReps: repsNum,
+        workoutNotes,
+        workoutDate,
+        caloriesBurned, // Will be 0 if estimation was skipped or failed
+        timestamp: new Date().toISOString(),
+      };
+
+      await addDoc(workoutColRef, newWorkout);
+
+      // Reset form
+      setWorkoutType("");
+      setWorkoutDuration("");
+      setWorkoutSets("");
+      setWorkoutReps("");
+      setWorkoutNotes("");
+      // The workoutError state will show the informational message if any
+
+    } catch (e) {
+      console.error(`Error adding workout:`, e);
+      setWorkoutError(`Failed to save workout: ${e.message}`);
+    } finally {
+      setAddingWorkout(false);
     }
   };
 
@@ -2584,7 +2577,9 @@ const suggestHealthyWeightRange = async () => {
                     isDarkMode
                       ? "bg-blue-700 hover:bg-blue-800"
                       : "bg-blue-600 hover:bg-blue-700"
-                  } text-white font-semibold py-2 sm:py-3 px-3 sm:px-4 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${isDarkMode ? 'hover:shadow-[0_0_15px_rgba(96,165,250,0.4)]' : 'hover:shadow-[0_0_15px_rgba(59,130,246,0.4)]'} focus:outline-none focus:ring-2 ${
+                  } text-white font-semibold py-2 sm:py-3 px-3 sm:px-4 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${
+                    isDarkMode ? 'hover:shadow-[0_0_15px_rgba(96,165,250,0.4)]' : 'hover:shadow-[0_0_15px_rgba(59,130,246,0.4)]'
+                  } focus:outline-none focus:ring-2 ${
                     isDarkMode ? "focus:ring-blue-400" : "focus:ring-blue-500"
                   } focus:ring-offset-2 flex items-center justify-center gap-2 text-sm sm:text-base`}
                   disabled={!isFirebaseReady || !userId}
@@ -2787,6 +2782,21 @@ const suggestHealthyWeightRange = async () => {
                         </span>
                       </p>
                       <p
+                        className={`${
+                          isDarkMode ? "text-gray-200" : "text-gray-800"
+                        }`}
+                      >
+                        <strong
+                          className={`${
+                            isDarkMode ? "text-blue-200" : "text-blue-800"
+                          }`}
+                        >
+                          Carbs:
+                        </strong>{" "}
+                        {parseNutrientValue(nutritionalInfo.carbs).toFixed(1)}{" "}
+                        {nutritionalInfo.carbs?.unit || "g"}
+                      </p>
+                      <p
                         className={`${isDarkMode ? "text-gray-200" : "text-gray-800"}`}
                       ></p>
                     </div>
@@ -2850,7 +2860,7 @@ const suggestHealthyWeightRange = async () => {
                   <div
                     className={`${
                       isDarkMode ? "bg-gray-600" : "bg-blue-50"
-                    } p-3 sm:p-4 rounded-xl shadow-md grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-center animate-fadeInUp`}
+                    } p-3 sm:p-4 rounded-xl shadow-md grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4 text-center animate-fadeInUp`}
                   >
                     <div>
                       <p
@@ -2980,6 +2990,34 @@ const suggestHealthyWeightRange = async () => {
                         ) : (
                           ""
                         )}
+                      </p>
+                    </div>
+                    <div>
+                      <p
+                        className={`text-xs sm:text-sm font-medium ${
+                          isDarkMode ? "text-blue-200" : "text-blue-800"
+                        }`}
+                      >
+                        Carbs
+                      </p>
+                      <p
+                        className={`text-lg sm:text-xl font-bold ${
+                          isDarkMode ? "text-blue-100" : "text-blue-900"
+                        }`}
+                      >
+                        {dailyTotals.carbs.toFixed(1)} g
+                        {recommendedDailyTargets?.recommendedCarbs &&
+                        typeof recommendedDailyTargets.recommendedCarbs ===
+                          "number" ? (
+                          <span
+                            className={`text-xs sm:text-base ${
+                              isDarkMode ? "text-blue-300" : "text-blue-700"
+                            }`}
+                          >
+                            {" "}
+                            / {recommendedDailyTargets.recommendedCarbs.toFixed(1)}
+                          </span>
+                        ) : null}
                       </p>
                     </div>
                   </div>
@@ -3219,7 +3257,7 @@ const suggestHealthyWeightRange = async () => {
                 {historyEntries.length > 0 ? (
                   <>
                     <div
-                      className={`p-3 sm:p-4 rounded-xl shadow-md grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-center mb-4 ${
+                      className={`p-3 sm:p-4 rounded-xl shadow-md grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4 text-center mb-4 ${
                         isDarkMode ? "bg-gray-600" : "bg-blue-50"
                       }`}
                     >
@@ -3239,6 +3277,10 @@ const suggestHealthyWeightRange = async () => {
                       <div>
                         <p className={`text-xs sm:text-sm font-medium ${isDarkMode ? "text-blue-200" : "text-blue-800"}`}>Sugars</p>
                         <p className={`text-lg sm:text-xl font-bold ${isDarkMode ? "text-blue-100" : "text-blue-900"}`}>{historyTotals.sugars.toFixed(1)} g</p>
+                      </div>
+                      <div>
+                        <p className={`text-xs sm:text-sm font-medium ${isDarkMode ? "text-blue-200" : "text-blue-800"}`}>Carbs</p>
+                        <p className={`text-lg sm:text-xl font-bold ${isDarkMode ? "text-blue-100" : "text-blue-900"}`}>{historyTotals.carbs.toFixed(1)} g</p>
                       </div>
                     </div>
 
@@ -4195,21 +4237,33 @@ const suggestHealthyWeightRange = async () => {
                                   : "N/A"}{" "}
                                 g
                               </p>
-                                                    <p className="text-sm">
-                        <strong
-                          className={`text-[var(--app-strong-text)]`}
-                        >
-                          Sugars:
-                        </strong>{" "}
-                        Max{" "}
-                        {typeof recommendedDailyTargets.recommendedSugars ===
-                        "number"
-                          ? recommendedDailyTargets.recommendedSugars.toFixed(
-                              1
-                            )
-                          : "N/A"}{" "}
-                        g
-                      </p>
+                              <p className="text-sm">
+                                <strong
+                                  className={`text-[var(--app-strong-text)]`}
+                                >
+                                  Sugars:
+                                </strong>{" "}
+                                Max{" "}
+                                {typeof recommendedDailyTargets.recommendedSugars ===
+                                "number"
+                                  ? recommendedDailyTargets.recommendedSugars.toFixed(
+                                      1
+                                    )
+                                  : "N/A"}{" "}
+                                g
+                              </p>
+                              <p className="text-sm">
+                                <strong
+                                  className={`text-[var(--app-strong-text)]`}
+                                >
+                                  Carbs:
+                                </strong>{" "}
+                                {typeof recommendedDailyTargets.recommendedCarbs ===
+                                "number"
+                                  ? recommendedDailyTargets.recommendedCarbs.toFixed(1)
+                                  : "N/A"}{" "}
+                                g
+                              </p>
                               {recommendedDailyTargets.notes && (
                                 <p
                                   className={`text-xs text-[var(--app-light-text)] mt-2`}
@@ -4361,6 +4415,20 @@ const suggestHealthyWeightRange = async () => {
                                   : "N/A"}{" "}
                                 g
                               </p>
+                              <p className="text-sm">
+                                <strong
+                                  className={`text-[var(--app-strong-text)]`}
+                                >
+                                  Carbs:
+                                </strong>{" "}
+                                {typeof maintenanceGoals.recommendedCarbs ===
+                                "number"
+                                  ? maintenanceGoals.recommendedCarbs.toFixed(
+                                      1
+                                    )
+                                  : "N/A"}{" "}
+                                g
+                              </p>
                               {maintenanceGoals.notes && (
                                 <p
                                   className={`text-xs text-[var(--app-light-text)] mt-2`}
@@ -4507,6 +4575,20 @@ const suggestHealthyWeightRange = async () => {
                                 {typeof muscleGainGoals.recommendedSugars ===
                                 "number"
                                   ? muscleGainGoals.recommendedSugars.toFixed(1)
+                                  : "N/A"}{" "}
+                                g
+                              </p>
+                              <p className="text-sm">
+                                <strong
+                                  className={`text-[var(--app-strong-text)]`}
+                                >
+                                  Carbs:
+                                </strong>{" "}
+                                {typeof muscleGainGoals.recommendedCarbs ===
+                                "number"
+                                  ? muscleGainGoals.recommendedCarbs.toFixed(
+                                      1
+                                    )
                                   : "N/A"}{" "}
                                 g
                               </p>
@@ -5191,6 +5273,13 @@ const suggestHealthyWeightRange = async () => {
                 </strong>{" "}
                 {parseNutrientValue(selectedMealForView.sugars).toFixed(1)}{" "}
                 {selectedMealForView.sugars?.unit || "g"}
+              </p>
+              <p>
+                <strong className={`text-[var(--app-strong-text)]`}>
+                  Carbs:
+                </strong>{" "}
+                {parseNutrientValue(selectedMealForView.carbs).toFixed(1)}{" "}
+                {selectedMealForView.carbs?.unit || "g"}
               </p>
             </div>
             <div className="mt-4 pt-4 border-t border-[var(--app-border-color)] text-sm text-[var(--app-normal-text)]">
