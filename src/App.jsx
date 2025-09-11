@@ -230,230 +230,6 @@ function App() {
   };
   // --- END: Firebase Configuration ---
 
-  // Default theme colors for light/dark mode and alert/chart colors
-  const defaultLightColors = {
-    appBg: "bg-gradient-to-br from-blue-50 to-cyan-100", // Outer background
-    cardBg: "#ffffff", // Main card background
-    normalText: "#1f2937", // Main text
-    mediumText: "#374151", // Secondary text
-    lightText: "#6b7280", // Faint text
-    strongText: "#1e40af", // Strong emphasis text
-    accentMain: "#3b82f6", // Main accent (blue-600)
-    accentDark: "#1e40af", // Darker accent (blue-900)
-    border: "#d1d5db", // General borders
-    cardBorder: "#bfdbfe", // Card specific borders
-    cardBgLight: "#eff6ff", // Light card backgrounds (for inner sections like BMI/Targets)
-
-    // Fixed alert/success/danger colors (not user-customizable via picker)
-    alertOrangeBg: "#fffbe6",
-    alertOrangeBorder: "#f97316",
-    alertOrangeText: "#ea580c",
-    alertRedBg: "#fef2f2",
-    alertRedBorder: "#ef4444",
-    alertRedText: "#dc2626",
-    alertGreenBg: "#f0fdf4",
-    alertGreenText: "#22c55e",
-
-    // Fixed button base colors
-    buttonPrimaryBg: "#3b82f6",
-    buttonPrimaryHover: "#2563eb",
-    buttonPrimaryText: "#ffffff", // Original blue-600
-    buttonSecondaryBg: "#bfdbfe",
-    buttonSecondaryHover: "#93c5fd",
-    buttonSecondaryText: "#1e40af", // Original blue-200, blue-800
-    buttonSuccessBg: "#22c55e",
-    buttonSuccessHover: "#16a34a",
-    buttonSuccessText: "#ffffff",
-    buttonDangerBg: "#ef4444",
-    buttonDangerHover: "#dc2626",
-    buttonDangerText: "#ffffff",
-    buttonIndigoBg: "#6366f1",
-    buttonIndigoHover: "#4f46e5",
-    buttonIndigoText: "#ffffff",
-  };
-
-  const defaultDarkColors = {
-    appBg: "bg-gradient-to-br from-gray-900 to-gray-700",
-    cardBg: "#374151",
-    normalText: "#e5e7eb",
-    mediumText: "#d1d5db",
-    lightText: "#9ca3af",
-    strongText: "#93c5fd",
-    accentMain: "#60a5fa",
-    accentDark: "#3b82f6",
-    border: "#4b5563",
-    cardBorder: "#6b7280",
-    cardBgLight: "#4b5563",
-
-    // Fixed alert/success/danger colors
-    alertOrangeBg: "#7c2d12",
-    alertOrangeBorder: "#fb923c",
-    alertOrangeText: "#fdb140",
-    alertRedBg: "#7f1d1d",
-    alertRedBorder: "#f87171",
-    alertRedText: "#fca5a5",
-    alertGreenBg: "#065f46",
-    alertGreenText: "#a7f3d0",
-
-    // Fixed button base colors
-    buttonPrimaryBg: "#60a5fa",
-    buttonPrimaryHover: "#3b82f6",
-    buttonPrimaryText: "#ffffff", // Original blue-400
-    buttonSecondaryBg: "#1e3a8a",
-    buttonSecondaryHover: "#1d4ed8",
-    buttonSecondaryText: "#93c5fd", // Darker blue, blue-200
-    buttonSuccessBg: "#059669",
-    buttonSuccessHover: "#047857",
-    buttonSuccessText: "#ffffff",
-    buttonDangerBg: "#b91c1c",
-    buttonDangerHover: "#991b1b",
-    buttonDangerText: "#ffffff",
-    buttonIndigoBg: "#4338ca",
-    buttonIndigoHover: "#3730a3",
-    buttonIndigoText: "#ffffff",
-  };
-
-  // Effect to apply CSS Custom Properties
-  useEffect(() => {
-    const root = document.documentElement;
-
-    // Determine the base colors (light or dark mode defaults)
-    const currentTheme = isDarkMode ? defaultDarkColors : defaultLightColors;
-
-    // Helper function to safely get color value
-    const getColorValue = (colorProperty) => {
-      const value = currentTheme[colorProperty];
-      // Ensure value is a string before calling startsWith or replace
-      if (typeof value === "string") {
-        return value; // If it's already a hex code or a class name we want to use directly
-      }
-      return ""; // Fallback to empty string if not valid
-    };
-
-    // Apply colors from currentTheme directly
-    // Use the helper to ensure values are strings before setting
-    root.style.setProperty("--app-card-bg", getColorValue("cardBg"));
-    root.style.setProperty("--app-accent-main", getColorValue("accentMain"));
-    root.style.setProperty("--app-accent-dark", getColorValue("accentDark"));
-
-    root.style.setProperty("--app-normal-text", getColorValue("normalText"));
-    root.style.setProperty("--app-medium-text", getColorValue("mediumText"));
-    root.style.setProperty("--app-light-text", getColorValue("lightText"));
-    root.style.setProperty("--app-strong-text", getColorValue("strongText"));
-
-    root.style.setProperty("--app-border-color", getColorValue("border"));
-    root.style.setProperty("--app-card-border", getColorValue("cardBorder"));
-    root.style.setProperty("--app-card-bg-light", getColorValue("cardBgLight"));
-
-    root.style.setProperty(
-      "--app-button-primary-bg",
-      getColorValue("buttonPrimaryBg")
-    );
-    root.style.setProperty(
-      "--app-button-primary-hover",
-      getColorValue("buttonPrimaryHover")
-    );
-    root.style.setProperty(
-      "--app-button-primary-text",
-      getColorValue("buttonPrimaryText")
-    );
-
-    root.style.setProperty(
-      "--app-button-secondary-bg",
-      getColorValue("buttonSecondaryBg")
-    );
-    root.style.setProperty(
-      "--app-button-secondary-text",
-      getColorValue("buttonSecondaryText")
-    );
-    root.style.setProperty(
-      "--app-button-secondary-hover",
-      getColorValue("buttonSecondaryHover")
-    );
-
-    root.style.setProperty(
-      "--app-button-success-bg",
-      getColorValue("buttonSuccessBg")
-    );
-    root.style.setProperty(
-      "--app-button-success-hover",
-      getColorValue("buttonSuccessHover")
-    );
-    root.style.setProperty(
-      "--app-button-danger-bg",
-      getColorValue("buttonDangerBg")
-    );
-    root.style.setProperty(
-      "--app-button-danger-hover",
-      getColorValue("buttonDangerHover")
-    );
-    root.style.setProperty(
-      "--app-button-indigo-bg",
-      getColorValue("buttonIndigoBg")
-    );
-    root.style.setProperty(
-      "--app-button-indigo-hover",
-      getColorValue("buttonIndigoHover")
-    );
-
-    root.style.setProperty(
-      "--app-tab-active-text",
-      getColorValue("accentMain")
-    );
-    root.style.setProperty(
-      "--app-tab-active-border",
-      getColorValue("accentMain")
-    );
-    root.style.setProperty(
-      "--app-tab-inactive-text",
-      getColorValue("lightText")
-    );
-    root.style.setProperty(
-      "--app-tab-inactive-hover",
-      getColorValue("accentMain")
-    );
-
-    root.style.setProperty(
-      "--app-input-focus-ring",
-      (getColorValue("accentMain") || "") + "80"
-    ); // Append transparency
-    root.style.setProperty(
-      "--app-input-focus-border",
-      getColorValue("accentMain")
-    );
-
-    root.style.setProperty("--app-chart-bar-fill", getColorValue("accentMain"));
-
-    root.style.setProperty(
-      "--app-alert-orange-bg",
-      getColorValue("alertOrangeBg")
-    );
-    root.style.setProperty(
-      "--app-alert-orange-border",
-      getColorValue("alertOrangeBorder")
-    );
-    root.style.setProperty(
-      "--app-alert-orange-text",
-      getColorValue("alertOrangeText")
-    );
-    root.style.setProperty("--app-alert-red-bg", getColorValue("alertRedBg"));
-    root.style.setProperty(
-      "--app-alert-red-border",
-      getColorValue("alertRedBorder")
-    );
-    root.style.setProperty(
-      "--app-alert-red-text",
-      getColorValue("alertRedText")
-    );
-    root.style.setProperty(
-      "--app-alert-green-bg",
-      getColorValue("alertGreenBg")
-    );
-    root.style.setProperty(
-      "--app-alert-green-text",
-      getColorValue("alertGreenText")
-    );
-  }, [isDarkMode]);
   // Add this helper function to calculate age from date of birth
 const calculateAge = (dateOfBirth) => {
     if (!dateOfBirth) return 0;
@@ -720,7 +496,6 @@ useEffect(() => {
             setWorkoutEntries([]); // Reset workout entries on logout
             setDailyTotals({ calories: 0, protein: 0, fats: 0, sugars: 0, carbs: 0, });
             setNutritionalInfo(null); // Clear last analysis result on logout
-
             // Reset theme mode to default light mode on logout
             setIsDarkMode(false);
             setHistoryDate(""); // Reset history date on logout
@@ -1124,7 +899,6 @@ useEffect(() => {
     userId,
     isFirebaseReady,
   ]);
-
   // Authentication functions
   const handleRegister = async () => {
     setAuthError("");
@@ -1693,7 +1467,6 @@ const suggestHealthyWeightRange = async () => {
 
     setMonthlyWeightChange(calculatedChange);
   }, [weight, targetWeight, targetDate]);
-
   // Function to toggle dark mode
   const toggleDarkMode = () => {
     setIsDarkMode((prevMode) => !prevMode); // Just toggle the mode
@@ -1702,9 +1475,9 @@ const suggestHealthyWeightRange = async () => {
   // Define theme classes based on isDarkMode state
   const themeClasses = {
     appBg: isDarkMode
-      ? "bg-gray-800 from-gray-900 to-gray-700"
+      ? "bg-gray-900"
       : "bg-gradient-to-br from-blue-50 to-cyan-100",
-    cardBg: isDarkMode ? "bg-gray-700" : "bg-white",
+    cardBg: isDarkMode ? "bg-gray-800" : "bg-white",
     headerText: isDarkMode ? "text-blue-400" : "text-blue-700",
     headerIcon: isDarkMode ? "text-blue-300" : "text-blue-600",
     normalText: isDarkMode ? "text-gray-200" : "text-gray-800",
@@ -2324,13 +2097,13 @@ const suggestHealthyWeightRange = async () => {
 
         {!userId && isFirebaseReady && (
           <div
-            className={`mb-4 p-3 bg-[var(--app-alert-orange-bg)] border-l-4 border-[var(--app-alert-orange-border)] text-[var(--app-alert-orange-text)] rounded-r-lg animate-fadeIn`}
+            className={`mb-4 p-3 ${themeClasses.alertBgOrange} border-l-4 ${themeClasses.alertBorderOrange} ${themeClasses.alertTextOrange} rounded-r-lg animate-fadeIn`}
             role="alert"
           >
             <p className="font-bold">You are not logged in.</p>
             <p className="text-sm">
               Your data is not being saved. Please go to the{" "}
-              <button onClick={() => setSelectedTab('aboutMe')} className="font-semibold underline hover:text-[var(--app-strong-text)]">About Me</button>{" "}
+              <button onClick={() => setSelectedTab('aboutMe')} className={`font-semibold underline hover:${themeClasses.strongText}`}>About Me</button>{" "}
               tab to log in or register to save your progress.
             </p>
           </div>
@@ -2402,13 +2175,7 @@ const suggestHealthyWeightRange = async () => {
         >
           <button
             className={`flex-1 py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium rounded-t-lg sm:rounded-none ${
-              selectedTab === "addMeal"
-                ? isDarkMode
-                  ? "text-blue-400 border-b-2 border-blue-400"
-                  : "text-blue-700 border-b-2 border-blue-700"
-                : isDarkMode
-                ? "text-gray-400 hover:text-blue-300"
-                : "text-gray-500 hover:text-blue-600"
+              selectedTab === "addMeal" ? themeClasses.tabActive : themeClasses.tabInactive
             }`}
             onClick={() => setSelectedTab("addMeal")}
           >
@@ -2416,13 +2183,7 @@ const suggestHealthyWeightRange = async () => {
           </button>
           <button
             className={`flex-1 py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium rounded-t-lg sm:rounded-none transition-colors duration-200 ${
-              selectedTab === "tracking"
-                ? isDarkMode
-                  ? "text-blue-400 border-b-2 border-blue-400"
-                  : "text-blue-700 border-b-2 border-blue-700"
-                : isDarkMode
-                ? "text-gray-400 hover:text-blue-300"
-                : "text-gray-500 hover:text-blue-600"
+              selectedTab === "tracking" ? themeClasses.tabActive : themeClasses.tabInactive
             }`}
             onClick={() => {
               setSelectedTab("tracking");
@@ -2433,13 +2194,7 @@ const suggestHealthyWeightRange = async () => {
           </button>
           <button
             className={`flex-1 py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium rounded-t-lg sm:rounded-none transition-colors duration-200 ${
-              selectedTab === "aboutMe"
-                ? isDarkMode
-                  ? "text-blue-400 border-b-2 border-blue-400"
-                  : "text-blue-700 border-b-2 border-blue-700"
-                : isDarkMode
-                ? "text-gray-400 hover:text-blue-300"
-                : "text-gray-500 hover:text-blue-600"
+              selectedTab === "aboutMe" ? themeClasses.tabActive : themeClasses.tabInactive
             }`}
             onClick={() => setSelectedTab("aboutMe")}
           >
@@ -2447,13 +2202,7 @@ const suggestHealthyWeightRange = async () => {
           </button>
           <button
             className={`flex-1 py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium rounded-t-lg sm:rounded-none transition-colors duration-200 ${
-              selectedTab === "target"
-                ? isDarkMode
-                  ? "text-blue-400 border-b-2 border-blue-400"
-                  : "text-blue-700 border-b-2 border-blue-700"
-                : isDarkMode
-                ? "text-gray-400 hover:text-blue-300"
-                : "text-gray-500 hover:text-blue-600"
+              selectedTab === "target" ? themeClasses.tabActive : themeClasses.tabInactive
             }`}
             onClick={() => setSelectedTab("target")}
           >
@@ -2461,13 +2210,7 @@ const suggestHealthyWeightRange = async () => {
           </button>
           <button
             className={`flex-1 py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium rounded-t-lg sm:rounded-none transition-colors duration-200 ${
-              selectedTab === "workout"
-                ? isDarkMode
-                  ? "text-blue-400 border-b-2 border-blue-400"
-                  : "text-blue-700 border-b-2 border-blue-700"
-                : isDarkMode
-                ? "text-gray-400 hover:text-blue-300"
-                : "text-gray-500 hover:text-blue-600"
+              selectedTab === "workout" ? themeClasses.tabActive : themeClasses.tabInactive
             }`}
             onClick={() => setSelectedTab("workout")}
           >
@@ -2475,13 +2218,7 @@ const suggestHealthyWeightRange = async () => {
           </button>
           <button
             className={`flex-1 py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium rounded-t-lg sm:rounded-none transition-colors duration-200 ${
-              selectedTab === "aiChef"
-                ? isDarkMode
-                  ? "text-blue-400 border-b-2 border-blue-400"
-                  : "text-blue-700 border-b-2 border-blue-700"
-                : isDarkMode
-                ? "text-gray-400 hover:text-blue-300"
-                : "text-gray-500 hover:text-blue-600"
+              selectedTab === "aiChef" ? themeClasses.tabActive : themeClasses.tabInactive
             }`}
             onClick={() => setSelectedTab("aiChef")}
           >
@@ -2894,9 +2631,7 @@ const suggestHealthyWeightRange = async () => {
                         typeof recommendedDailyTargets.recommendedCalories ===
                           "number" ? (
                           <span
-                            className={`text-xs sm:text-base ${
-                              isDarkMode ? "text-blue-300" : "text-blue-700"
-                            }`}
+                            className={`text-xs sm:text-base ${themeClasses.brandText}`}
                           >
                             {" "}
                             /{" "}
@@ -2911,16 +2646,12 @@ const suggestHealthyWeightRange = async () => {
                     </div>
                     <div>
                       <p
-                        className={`text-xs sm:text-sm font-medium ${
-                          isDarkMode ? "text-blue-200" : "text-blue-800"
-                        }`}
+                        className={`text-xs sm:text-sm font-medium ${themeClasses.strongText}`}
                       >
                         Protein
                       </p>
                       <p
-                        className={`text-lg sm:text-xl font-bold ${
-                          isDarkMode ? "text-blue-100" : "text-blue-900"
-                        }`}
+                        className={`text-lg sm:text-xl font-bold ${themeClasses.strongText}`}
                       >
                         {dailyTotals.protein.toFixed(1)} g
                         {recommendedDailyTargets?.recommendedProtein &&
@@ -3189,29 +2920,21 @@ const suggestHealthyWeightRange = async () => {
                           <li
                             key={index}
                             onClick={() => setSelectedMealForView(entry)}
-                            className={`p-2 sm:p-3 text-xs sm:text-sm flex justify-between items-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors duration-150 ${
-                              isDarkMode ? "text-gray-200" : "text-gray-800"
-                            }`}
+                            className={`p-2 sm:p-3 text-xs sm:text-sm flex justify-between items-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors duration-150 text-[var(--app-normal-text)]`}
                           >
                             <span
-                              className={`font-medium ${
-                                isDarkMode ? "text-gray-200" : "text-gray-800"
-                              }`}
+                              className={`font-medium text-[var(--app-normal-text)]`}
                             >
                               {entry.foodItem} (
                               <span
-                                className={`${
-                                  isDarkMode ? "text-blue-300" : "text-blue-700"
-                                }`}
+                                className={`${themeClasses.brandText}`}
                               >
                                 {entry.mealType}
                               </span>
                               )
                             </span>
                             <span
-                              className={`text-${
-                                isDarkMode ? "gray-300" : "gray-700"
-                              }`}
+                              className={`text-[var(--app-medium-text)]`}
                             >
                               {entry.calories.value.toFixed(1)} kcal
                             </span>
@@ -3255,14 +2978,22 @@ const suggestHealthyWeightRange = async () => {
                 <div className="mb-4">
                   <label
                     htmlFor="historyDate"
-                    className={`block text-sm font-medium ${themeClasses.mediumText} mb-1 sm:mb-2`}
+                    className={`block text-sm font-medium ${isDarkMode ? "text-gray-300" : "text-gray-700"} mb-1 sm:mb-2`}
                   >
                     Select a date to view:
                   </label>
                   <input
                     id="historyDate"
                     type="date"
-                    className={`w-full p-2 sm:p-3 bg-[var(--app-card-bg)] border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm sm:text-base text-[var(--app-normal-text)]`}
+                    className={`w-full p-2 sm:p-3 ${
+                      isDarkMode
+                        ? "bg-gray-700 text-gray-200 border-gray-600"
+                        : "bg-white text-gray-800 border-gray-300"
+                    } rounded-lg focus:ring-${
+                      isDarkMode ? "blue-400" : "blue-500"
+                    } focus:border-${
+                      isDarkMode ? "blue-400" : "blue-500"
+                    } transition-all duration-200 shadow-sm text-sm sm:text-base`}
                     value={historyDate}
                     onChange={(e) => setHistoryDate(e.target.value)}
                   />
@@ -3361,7 +3092,9 @@ const suggestHealthyWeightRange = async () => {
 
             {/* Authentication Section */}
             <div
-              className={`bg-[var(--app-card-bg-light)] p-4 rounded-xl shadow-md mb-4 sm:mb-6`}
+              className={`${
+                isDarkMode ? "bg-gray-700" : "bg-blue-50"
+              } p-4 rounded-xl shadow-md mb-4 sm:mb-6`}
             >
               <h3
                 className={`text-lg sm:text-xl font-semibold ${
@@ -3373,7 +3106,9 @@ const suggestHealthyWeightRange = async () => {
               {!userId ? (
                 <>
                   <p
-                    className={`text-[var(--app-medium-text)] mb-3 sm:mb-4 text-sm`}
+                    className={`${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    } mb-3 sm:mb-4 text-sm`}
                   >
                     Register or log in to save and load your data. If you don't
                     have an account, enter your desired email and password and
@@ -3452,15 +3187,15 @@ const suggestHealthyWeightRange = async () => {
                             ? "none"
                             : isDarkMode
                             ? "white"
-                            : "var(--app-normal-text)"
+                            : "currentColor"
                         } /* Filled when hidden, none when showing */
                         stroke={
                           showPassword
                             ? isDarkMode
                               ? "white"
-                              : "var(--app-normal-text)"
+                              : "currentColor"
                             : "none"
-                        } /* Stroke with normal text color when showing */
+                        } /* Stroke with current text color when showing */
                         strokeWidth="1.5" /* Consistent stroke width */
                       >
                         <circle cx="10" cy="10" r="5" />
@@ -3685,7 +3420,7 @@ const suggestHealthyWeightRange = async () => {
 
             <div
               className={`mt-6 sm:mt-8 ${
-                isDarkMode ? "bg-gray-600" : "bg-blue-50"
+                isDarkMode ? "bg-gray-700" : "bg-blue-50"
               } p-4 sm:p-6 rounded-xl shadow-md text-center`}
             >
               {bmi && (
@@ -3764,7 +3499,9 @@ const suggestHealthyWeightRange = async () => {
               <div className="mt-6 text-center">
                 <button
                   onClick={handleSaveProfile}
-                  className={`bg-[var(--app-button-indigo-bg)] text-white font-semibold py-2 px-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${isDarkMode ? 'hover:shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'hover:shadow-[0_0_15px_rgba(99,102,241,0.5)]'} focus:outline-none focus:ring-2 focus:ring-[var(--app-input-focus-ring)] focus:ring-offset-2 text-sm`}
+                  className={`${themeClasses.buttonIndigo} text-white font-semibold py-2 px-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${
+                    isDarkMode ? 'hover:shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'hover:shadow-[0_0_15px_rgba(99,102,241,0.5)]'
+                  } focus:outline-none focus:ring-2 ${isDarkMode ? "focus:ring-blue-400" : "focus:ring-blue-500"} focus:ring-offset-2 text-sm`}
                 >
                   Save Profile Manually
                 </button>
@@ -3843,7 +3580,9 @@ const suggestHealthyWeightRange = async () => {
               isNaN(age) ||
               age < 0 ? (
                 <div
-                  className={`bg-[var(--app-alert-orange-bg)] border-l-4 border-[var(--app-alert-orange-border)] text-[var(--app-alert-orange-text)] p-3 sm:p-4 mb-4 sm:mb-6 rounded-lg`}
+                  className={`${
+                    isDarkMode ? themeClasses.alertBgOrange : "bg-orange-100"
+                  } border-l-4 ${isDarkMode ? themeClasses.alertBorderOrange : "border-orange-500"} ${isDarkMode ? themeClasses.alertTextOrange : "text-orange-700"} p-3 sm:p-4 mb-4 sm:mb-6 rounded-lg`}
                   role="alert"
                 >
                   <p className="font-bold text-sm sm:text-base">
@@ -3862,7 +3601,9 @@ const suggestHealthyWeightRange = async () => {
                   {/* This fragment wraps the rest of the target content */}
                   {targetOption === "weightLoss" && (
                     <div
-                      className={`bg-[var(--app-card-bg-light)] p-4 sm:p-6 rounded-xl shadow-inner`}
+                      className={`${
+                        isDarkMode ? "bg-gray-700" : "bg-blue-50"
+                      } p-4 sm:p-6 rounded-xl shadow-inner`}
                     >
                       <h3
                         className={`text-lg sm:text-xl font-semibold ${
@@ -3938,7 +3679,9 @@ const suggestHealthyWeightRange = async () => {
                         </button>
                         {suggestionError && (
                           <p
-                            className={`text-[var(--app-alert-red-text)] text-xs sm:text-sm mt-2 text-center`}
+                            className={`${
+                              isDarkMode ? "text-red-200" : "text-red-700"
+                            } text-xs sm:text-sm mt-2 text-center`}
                           >
                             {suggestionError}
                           </p>
@@ -4097,7 +3840,9 @@ const suggestHealthyWeightRange = async () => {
                             </>
                           ) : (
                             <p
-                              className={`text-[var(--app-normal-text)] text-sm sm:text-lg`}
+                              className={`${
+                                isDarkMode ? "text-gray-200" : "text-gray-800"
+                              } text-sm sm:text-lg`}
                             >
                               {monthlyWeightChange === null
                                 ? "Enter your current weight (in 'About Me'), target weight, and a target date to calculate your monthly goal."
@@ -4609,7 +4354,7 @@ const suggestHealthyWeightRange = async () => {
         {selectedTab === "workout" && (
           <div className="mt-4 animate-fadeInUp">
             <h2
-              className={`text-xl sm:text-2xl font-bold ${themeClasses.brandText} mb-3 sm:mb-4`}
+              className={`text-xl sm:text-2xl font-bold ${isDarkMode ? "text-blue-300" : "text-blue-700"} mb-3 sm:mb-4`}
             >
               Log Your Workout
             </h2>
@@ -4620,14 +4365,22 @@ const suggestHealthyWeightRange = async () => {
                     <div className="md:col-span-3">
                       <label
                         htmlFor="workoutType"
-                        className="block text-sm font-medium mb-1"
+                        className={`block text-sm font-medium ${isDarkMode ? "text-gray-300" : "text-gray-700"} mb-1`}
                       >
                         Workout Type:
                       </label>
                       <input
                         id="workoutType"
                         type="text"
-                        className="w-full p-2 bg-[var(--app-card-bg)] border border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm"
+                        className={`w-full p-2 ${
+                          isDarkMode
+                            ? "bg-gray-700 text-gray-200 border-gray-600"
+                            : "bg-white text-gray-800 border-gray-300"
+                        } rounded-lg focus:ring-${
+                          isDarkMode ? "blue-400" : "blue-500"
+                        } focus:border-${
+                          isDarkMode ? "blue-400" : "blue-500"
+                        } transition-all duration-200 shadow-sm text-sm`}
                         placeholder="e.g., Running, Bench Press, Crunches"
                         value={workoutType}
                         onChange={(e) => setWorkoutType(e.target.value)}
@@ -4636,7 +4389,7 @@ const suggestHealthyWeightRange = async () => {
                     <div>
                       <label
                         htmlFor="workoutDuration"
-                        className="block text-sm font-medium mb-1"
+                        className={`block text-sm font-medium ${isDarkMode ? "text-gray-300" : "text-gray-700"} mb-1`}
                       >
                         Duration (min):
                       </label>
@@ -4644,7 +4397,15 @@ const suggestHealthyWeightRange = async () => {
                         id="workoutDuration"
                         type="number"
                         step="1"
-                        className="w-full p-2 bg-[var(--app-card-bg)] border border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm"
+                        className={`w-full p-2 ${
+                          isDarkMode
+                            ? "bg-gray-700 text-gray-200 border-gray-600"
+                            : "bg-white text-gray-800 border-gray-300"
+                        } rounded-lg focus:ring-${
+                          isDarkMode ? "blue-400" : "blue-500"
+                        } focus:border-${
+                          isDarkMode ? "blue-400" : "blue-500"
+                        } transition-all duration-200 shadow-sm text-sm`}
                         placeholder="e.g., 30"
                         value={workoutDuration}
                         onChange={(e) => setWorkoutDuration(e.target.value)}
@@ -4653,7 +4414,7 @@ const suggestHealthyWeightRange = async () => {
                     <div>
                       <label
                         htmlFor="workoutSets"
-                        className="block text-sm font-medium mb-1"
+                        className={`block text-sm font-medium ${isDarkMode ? "text-gray-300" : "text-gray-700"} mb-1`}
                       >
                         Sets (optional):
                       </label>
@@ -4661,7 +4422,15 @@ const suggestHealthyWeightRange = async () => {
                         id="workoutSets"
                         type="number"
                         step="1"
-                        className="w-full p-2 bg-[var(--app-card-bg)] border border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm"
+                        className={`w-full p-2 ${
+                          isDarkMode
+                            ? "bg-gray-700 text-gray-200 border-gray-600"
+                            : "bg-white text-gray-800 border-gray-300"
+                        } rounded-lg focus:ring-${
+                          isDarkMode ? "blue-400" : "blue-500"
+                        } focus:border-${
+                          isDarkMode ? "blue-400" : "blue-500"
+                        } transition-all duration-200 shadow-sm text-sm`}
                         placeholder="e.g., 3"
                         value={workoutSets}
                         onChange={(e) => setWorkoutSets(e.target.value)}
@@ -4670,7 +4439,7 @@ const suggestHealthyWeightRange = async () => {
                     <div>
                       <label
                         htmlFor="workoutReps"
-                        className="block text-sm font-medium mb-1"
+                        className={`block text-sm font-medium ${isDarkMode ? "text-gray-300" : "text-gray-700"} mb-1`}
                       >
                         Reps per Set (optional):
                       </label>
@@ -4678,7 +4447,15 @@ const suggestHealthyWeightRange = async () => {
                         id="workoutReps"
                         type="number"
                         step="1"
-                        className="w-full p-2 bg-[var(--app-card-bg)] border border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm"
+                        className={`w-full p-2 ${
+                          isDarkMode
+                            ? "bg-gray-700 text-gray-200 border-gray-600"
+                            : "bg-white text-gray-800 border-gray-300"
+                        } rounded-lg focus:ring-${
+                          isDarkMode ? "blue-400" : "blue-500"
+                        } focus:border-${
+                          isDarkMode ? "blue-400" : "blue-500"
+                        } transition-all duration-200 shadow-sm text-sm`}
                         placeholder="e.g., 12"
                         value={workoutReps}
                         onChange={(e) => setWorkoutReps(e.target.value)}
@@ -4688,14 +4465,22 @@ const suggestHealthyWeightRange = async () => {
                   <div className="mb-4">
                     <label
                       htmlFor="workoutDate"
-                      className="block text-sm font-medium mb-1"
+                      className={`block text-sm font-medium ${isDarkMode ? "text-gray-300" : "text-gray-700"} mb-1`}
                     >
                       Date:
                     </label>
                     <input
                       id="workoutDate"
                       type="date"
-                      className="w-full p-2 bg-[var(--app-card-bg)] border border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm"
+                      className={`w-full p-2 ${
+                        isDarkMode
+                          ? "bg-gray-700 text-gray-200 border-gray-600"
+                          : "bg-white text-gray-800 border-gray-300"
+                      } rounded-lg focus:ring-${
+                        isDarkMode ? "blue-400" : "blue-500"
+                      } focus:border-${
+                        isDarkMode ? "blue-400" : "blue-500"
+                      } transition-all duration-200 shadow-sm text-sm`}
                       value={workoutDate}
                       onChange={(e) => setWorkoutDate(e.target.value)}
                     />
@@ -4703,13 +4488,23 @@ const suggestHealthyWeightRange = async () => {
                   <div className="mb-4 sm:mb-6">
                     <label
                       htmlFor="workoutNotes"
-                      className={`block text-sm font-medium ${themeClasses.mediumText} mb-1 sm:mb-2`}
+                      className={`block text-sm font-medium ${
+                        isDarkMode ? "text-gray-300" : "text-gray-700"
+                      } mb-1 sm:mb-2`}
                     >
                       Notes (optional):
                     </label>
                     <textarea
                       id="workoutNotes"
-                      className={`w-full p-2 sm:p-3 bg-[var(--app-card-bg)] border border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm sm:text-base text-[var(--app-normal-text)]`}
+                      className={`w-full p-2 sm:p-3 ${
+                        isDarkMode
+                          ? "bg-gray-700 text-gray-200 border-gray-600"
+                          : "bg-white text-gray-800 border-gray-300"
+                      } rounded-lg focus:ring-${
+                        isDarkMode ? "blue-400" : "blue-500"
+                      } focus:border-${
+                        isDarkMode ? "blue-400" : "blue-500"
+                      } transition-all duration-200 shadow-sm text-sm sm:text-base ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}
                       rows="3"
                       placeholder="e.g., Felt great today! Focused on arms."
                       value={workoutNotes}
@@ -4718,7 +4513,11 @@ const suggestHealthyWeightRange = async () => {
                   </div>
                   <button
                     onClick={addWorkout}
-                    className={`w-full bg-[var(--app-button-primary-bg)] text-[var(--app-button-primary-text)] font-semibold py-2 sm:py-3 px-3 sm:px-4 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${isDarkMode ? 'hover:shadow-[0_0_15px_rgba(96,165,250,0.4)]' : 'hover:shadow-[0_0_15px_rgba(59,130,246,0.4)]'} focus:outline-none focus:ring-2 focus:ring-[var(--app-input-focus-ring)] focus:ring-offset-2 flex items-center justify-center gap-2 text-sm sm:text-base`}
+                    className={`w-full ${themeClasses.buttonPrimary} font-semibold py-2 sm:py-3 px-3 sm:px-4 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${isDarkMode ? 'hover:shadow-[0_0_15px_rgba(96,165,250,0.4)]' : 'hover:shadow-[0_0_15px_rgba(59,130,246,0.4)]'} focus:outline-none focus:ring-2 ${
+                      isDarkMode
+                        ? "focus:ring-blue-400"
+                        : "focus:ring-blue-500"
+                    } focus:ring-offset-2 flex items-center justify-center gap-2 text-sm sm:text-base`}
                     disabled={addingWorkout ||
                         !workoutType ||
                         !workoutDate ||
@@ -4772,7 +4571,9 @@ const suggestHealthyWeightRange = async () => {
                   </button>
                   {workoutError && (
                     <p
-                      className={`text-[var(--app-alert-red-text)] text-xs sm:text-sm mt-2 text-center`}
+                      className={`${
+                        isDarkMode ? "text-red-200" : "text-red-700"
+                      } text-xs sm:text-sm mt-2 text-center`}
                     >
                       {workoutError}
                     </p>
@@ -4782,12 +4583,16 @@ const suggestHealthyWeightRange = async () => {
                 {workoutEntries.length > 0 && (
                   <div className="mt-4 sm:mt-6">
                     <h3
-                      className={`text-md sm:text-lg font-semibold text-[var(--app-strong-text)] mb-2`}
+                      className={`text-md sm:text-lg font-semibold ${themeClasses.strongText} mb-2`}
                     >
                       Todays Logged Workouts:
                     </h3>
                     <ul
-                      className={`bg-[var(--app-card-bg)] border border-[var(--app-border-color)] rounded-lg divide-y divide-[var(--app-border-color)] shadow-sm max-h-40 sm:max-h-48 overflow-y-auto`}
+                      className={`${
+                        isDarkMode
+                          ? "bg-gray-700 border-gray-600"
+                          : "bg-white border-gray-300"
+                      } rounded-lg divide-y ${isDarkMode ? "divide-gray-600" : "divide-gray-200"} shadow-sm max-h-40 sm:max-h-48 overflow-y-auto`}
                     >
                       {workoutEntries
                         .filter(
@@ -4798,25 +4603,25 @@ const suggestHealthyWeightRange = async () => {
                         .map((entry) => (
                         <li
                           key={entry.id}
-                          className={`p-2 sm:p-3 text-xs sm:text-sm flex justify-between items-center text-[var(--app-normal-text)]`}
+                          className={`p-2 sm:p-3 text-xs sm:text-sm flex justify-between items-center ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}
                         >
                           <div className="flex-grow">
                             <span className="font-medium">
                               {entry.workoutType}
                             </span>
                             {entry.workoutSets > 0 && entry.workoutReps > 0 ? (
-                              <span className="text-sm text-[var(--app-medium-text)] ml-2">
+                              <span className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"} ml-2`}>
                                 ({entry.workoutSets} sets of {entry.workoutReps}{" "}
                                 reps)
                               </span>
                             ) : entry.workoutDuration > 0 ? (
-                              <span className="text-sm text-[var(--app-medium-text)] ml-2">
+                              <span className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"} ml-2`}>
                                 ({entry.workoutDuration} min)
                                 </span>
                               ) : null}
-                            <span className="text-xs text-[var(--app-light-text)] ml-2">{formatDate_DD_MM_YYYY(entry.workoutDate)}</span>
+                            <span className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-500"} ml-2`}>{formatDate_DD_MM_YYYY(entry.workoutDate)}</span>
                             {entry.workoutNotes && (
-                              <p className="text-xs italic text-[var(--app-light-text)] mt-1">
+                              <p className={`text-xs italic ${isDarkMode ? "text-gray-400" : "text-gray-500"} mt-1`}>
                                 {entry.workoutNotes}
                               </p>
                             )}
@@ -4864,21 +4669,29 @@ const suggestHealthyWeightRange = async () => {
 
                 {/* Workout History Section */}
                 <h2
-                  className={`text-xl sm:text-2xl font-bold ${themeClasses.brandText} mt-6 sm:mt-8 mb-3 sm:mb-4`}
+                  className={`text-xl sm:text-2xl font-bold ${isDarkMode ? "text-blue-300" : "text-blue-700"} mt-6 sm:mt-8 mb-3 sm:mb-4`}
                 >
                   Workout History
                 </h2>
                 <div className="mb-4">
                   <label
                     htmlFor="workoutHistoryDate"
-                    className={`block text-sm font-medium ${themeClasses.mediumText} mb-1 sm:mb-2`}
+                    className={`block text-sm font-medium ${isDarkMode ? "text-gray-300" : "text-gray-700"} mb-1 sm:mb-2`}
                   >
                     Select a date to view:
                   </label>
                   <input
                     id="workoutHistoryDate"
                     type="date"
-                    className={`w-full p-2 sm:p-3 bg-[var(--app-card-bg)] border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm sm:text-base text-[var(--app-normal-text)]`}
+                    className={`w-full p-2 sm:p-3 ${
+                      isDarkMode
+                        ? "bg-gray-700 text-gray-200 border-gray-600"
+                        : "bg-white text-gray-800 border-gray-300"
+                    } rounded-lg focus:ring-${
+                      isDarkMode ? "blue-400" : "blue-500"
+                    } focus:border-${
+                      isDarkMode ? "blue-400" : "blue-500"
+                    } transition-all duration-200 shadow-sm text-sm sm:text-base ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}
                     value={workoutHistoryDate}
                     onChange={(e) => setWorkoutHistoryDate(e.target.value)}
                   />
@@ -4896,36 +4709,38 @@ const suggestHealthyWeightRange = async () => {
                     </div>
 
                     <h4
-                      className={`text-md font-semibold ${
-                        isDarkMode ? "text-gray-300" : "text-gray-700"
-                      } mb-2`}
+                      className={`text-md font-semibold ${isDarkMode ? "text-gray-300" : "text-gray-700"} mb-2`}
                     >
                       Logged Workouts for {formatDate_DD_MM_YYYY(workoutHistoryDate)}:
                     </h4>
                     <ul
-                      className={`bg-[var(--app-card-bg)] border border-[var(--app-border-color)] rounded-lg divide-y divide-[var(--app-border-color)] shadow-sm max-h-40 sm:max-h-48 overflow-y-auto`}
+                      className={`${
+                        isDarkMode
+                          ? "bg-gray-700 border-gray-600"
+                          : "bg-white border-gray-300"
+                      } rounded-lg divide-y ${isDarkMode ? "divide-gray-600" : "divide-gray-200"} shadow-sm max-h-40 sm:max-h-48 overflow-y-auto`}
                     >
                       {workoutHistoryEntries.map((entry) => (
                         <li
                           key={entry.id}
-                          className={`p-2 sm:p-3 text-xs sm:text-sm flex justify-between items-center text-[var(--app-normal-text)]`}
+                          className={`p-2 sm:p-3 text-xs sm:text-sm flex justify-between items-center ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}
                         >
                           <div className="flex-grow">
                             <span className="font-medium">
                               {entry.workoutType}
                             </span>
                             {entry.workoutSets > 0 && entry.workoutReps > 0 ? (
-                              <span className="text-sm text-[var(--app-medium-text)] ml-2">
+                              <span className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"} ml-2`}>
                                 ({entry.workoutSets} sets of {entry.workoutReps}{" "}
                                 reps)
                               </span>
                             ) : entry.workoutDuration > 0 ? (
-                              <span className="text-sm text-[var(--app-medium-text)] ml-2">
+                              <span className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"} ml-2`}>
                                 ({entry.workoutDuration} min)
                               </span>
                             ) : null}
                             {entry.workoutNotes && (
-                              <p className="text-xs italic text-[var(--app-light-text)] mt-1">
+                              <p className={`text-xs italic ${isDarkMode ? "text-gray-400" : "text-gray-500"} mt-1`}>
                                 {entry.workoutNotes}
                               </p>
                             )}
@@ -4981,14 +4796,14 @@ const suggestHealthyWeightRange = async () => {
         {selectedTab === "aiChef" && (
           <div className="mt-4 animate-fadeInUp">
             <h2
-              className={`text-xl sm:text-2xl font-bold ${themeClasses.brandText} mb-3 sm:mb-4`}
+              className={`text-xl sm:text-2xl font-bold ${isDarkMode ? "text-blue-300" : "text-blue-700"} mb-3 sm:mb-4`}
             >
               AI Chef: Personalized Recipes
             </h2>
             <div
-                  className={`bg-[var(--app-card-bg-light)] p-4 rounded-xl shadow-md mb-4 sm:mb-6`}
+                  className={`${isDarkMode ? "bg-gray-700" : "bg-blue-50"} p-4 rounded-xl shadow-md mb-4 sm:mb-6`}
                 >
-                  <p className={`text-sm ${themeClasses.mediumText} mb-2`}>
+                  <p className={`text-sm ${isDarkMode ? "text-gray-300" : "text-gray-700"} mb-2`}>
                     Tell the AI Chef what you'd like to cook! Describe
                     ingredients you have, dietary restrictions (e.g.,
                     vegetarian, gluten-free), preferred cuisine, or a type of
@@ -4997,7 +4812,15 @@ const suggestHealthyWeightRange = async () => {
                   </p>
                   <textarea
                     id="chefPrompt"
-                    className={`w-full p-2 sm:p-3 bg-[var(--app-card-bg)] border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm sm:text-base ${themeClasses.normalText}`}
+                    className={`w-full p-2 sm:p-3 ${
+                      isDarkMode
+                        ? "bg-gray-800 text-gray-200 border-gray-600"
+                        : "bg-white text-gray-800 border-gray-300"
+                    } rounded-lg focus:ring-${
+                      isDarkMode ? "blue-400" : "blue-500"
+                    } focus:border-${
+                      isDarkMode ? "blue-400" : "blue-500"
+                    } transition-all duration-200 shadow-sm text-sm sm:text-base ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}
                     rows="4"
                     placeholder="e.g., Chicken and broccoli, high protein. Or: Quick dinner with pantry staples, no dairy. Or: Post-workout snack, low sugar."
                     value={chefPrompt}
@@ -5014,7 +4837,7 @@ const suggestHealthyWeightRange = async () => {
                     isNaN(age) ||
                     age < 0) && (
                     <div
-                      className={`bg-[var(--app-alert-orange-bg)] border-l-4 border-[var(--app-alert-orange-border)] text-[var(--app-alert-orange-text)] p-2 rounded-lg text-xs mt-2`}
+                      className={`${themeClasses.alertBgOrange} border-l-4 ${themeClasses.alertBorderOrange} ${themeClasses.alertTextOrange} p-2 rounded-lg text-xs mt-2`}
                       role="alert"
                     >
                       <p className="font-bold">Missing Profile Data</p>
@@ -5029,7 +4852,7 @@ const suggestHealthyWeightRange = async () => {
                     Object.keys(maintenanceGoals).length === 0 &&
                     Object.keys(muscleGainGoals).length === 0 && (
                       <div
-                        className={`bg-[var(--app-alert-orange-bg)] border-l-4 border-[var(--app-alert-orange-border)] text-[var(--app-alert-orange-text)] p-2 rounded-lg text-xs mt-2`}
+                        className={`${themeClasses.alertBgOrange} border-l-4 ${themeClasses.alertBorderOrange} ${themeClasses.alertTextOrange} p-2 rounded-lg text-xs mt-2`}
                         role="alert"
                       >
                         <p className="font-bold">No Fitness Goal Set</p>
@@ -5095,7 +4918,9 @@ const suggestHealthyWeightRange = async () => {
                   </button>
                   {recipeError && (
                     <p
-                      className={`text-[var(--app-alert-red-text)] text-xs sm:text-sm mt-2 text-center`}
+                      className={`${
+                        isDarkMode ? "text-red-200" : "text-red-700"
+                      } text-xs sm:text-sm mt-2 text-center`}
                     >
                       {recipeError}
                     </p>
@@ -5104,10 +4929,14 @@ const suggestHealthyWeightRange = async () => {
 
                 {aiRecipe && (
                   <div
-                      className={`mt-4 sm:mt-6 p-3 sm:p-4 bg-[var(--app-card-bg-light)] rounded-lg border-[var(--app-card-border)] shadow-inner animate-fadeInUp`}
+                      className={`mt-4 sm:mt-6 p-3 sm:p-4 ${
+                        isDarkMode ? "bg-gray-700" : "bg-blue-50"
+                      } rounded-lg border ${isDarkMode ? "border-gray-500" : "border-blue-200"} shadow-inner animate-fadeInUp`}
                   >
                     <h3
-                      className={`text-lg sm:text-xl font-semibold text-[var(--app-accent-main)] mb-2 sm:mb-3`}
+                      className={`text-lg sm:text-xl font-semibold ${
+                        isDarkMode ? "text-blue-300" : "text-blue-700"
+                      } mb-2 sm:mb-3`}
                     >
                       AI-Generated Recipe:
                     </h3>
@@ -5139,26 +4968,30 @@ const suggestHealthyWeightRange = async () => {
       {showDeleteConfirmModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div
-            className={`bg-[var(--app-card-bg)] p-6 rounded-lg shadow-xl text-center w-full max-w-sm border border-[var(--app-border-color)] animate-fadeInScale`}
+            className={`${
+              isDarkMode ? "bg-gray-800" : "bg-white"
+            } p-6 rounded-lg shadow-xl text-center w-full max-w-sm border ${
+              isDarkMode ? "border-gray-600" : "border-gray-300"
+            } animate-fadeInScale`}
           >
             <p
-              className={`text-lg font-semibold mb-4 text-[var(--app-normal-text)]`}
+              className={`text-lg font-semibold mb-4 ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}
             >
               Are you sure?
             </p>
-            <p className={`text-sm text-[var(--app-medium-text)] mb-6`}>
+            <p className={`text-sm ${isDarkMode ? "text-gray-300" : "text-gray-700"} mb-6`}>
               This action cannot be undone.
             </p>
             <div className="flex justify-center space-x-4">
               <button
                 onClick={confirmDelete}
-                className={`bg-[var(--app-button-danger-bg)] text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+                className={`bg-red-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-red-700 transition-colors`}
               >
                 Yes, Delete
               </button>
               <button
                 onClick={cancelDelete}
-                className={`bg-[var(--app-button-secondary-bg)] text-[var(--app-button-secondary-text)] font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+                className={`bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-gray-400 transition-colors`}
               >
                 Cancel
               </button>
@@ -5171,7 +5004,11 @@ const suggestHealthyWeightRange = async () => {
       {selectedMealForView && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div
-            className={`bg-[var(--app-card-bg)] p-6 rounded-lg shadow-xl w-full max-w-md border border-[var(--app-border-color)] relative animate-fadeInScale`}
+            className={`${
+              isDarkMode ? "bg-gray-800" : "bg-white"
+            } p-6 rounded-lg shadow-xl w-full max-w-md border ${
+              isDarkMode ? "border-gray-600" : "border-gray-300"
+            } relative animate-fadeInScale`}
           >
             <button
               onClick={() => setSelectedMealForView(null)}
@@ -5194,50 +5031,50 @@ const suggestHealthyWeightRange = async () => {
               </svg>
             </button>
             <h3
-              className={`text-xl font-bold mb-4 text-[var(--app-strong-text)]`}
+              className={`text-xl font-bold mb-4 ${isDarkMode ? "text-blue-300" : "text-blue-700"}`}
             >
               {selectedMealForView.foodItem}
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-[var(--app-normal-text)]">
+            <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>
               <p>
-                <strong className={`text-[var(--app-strong-text)]`}>
+                <strong className={`${isDarkMode ? "text-blue-300" : "text-blue-700"}`}>
                   Calories:
                 </strong>{" "}
                 {parseNutrientValue(selectedMealForView.calories).toFixed(1)}{" "}
                 {selectedMealForView.calories?.unit || "kcal"}
               </p>
               <p>
-                <strong className={`text-[var(--app-strong-text)]`}>
+                <strong className={`${isDarkMode ? "text-blue-300" : "text-blue-700"}`}>
                   Protein:
                 </strong>{" "}
                 {parseNutrientValue(selectedMealForView.protein).toFixed(1)}{" "}
                 {selectedMealForView.protein?.unit || "g"}
               </p>
               <p>
-                <strong className={`text-[var(--app-strong-text)]`}>
+                <strong className={`${isDarkMode ? "text-blue-300" : "text-blue-700"}`}>
                   Fats:
                 </strong>{" "}
                 {parseNutrientValue(selectedMealForView.fats).toFixed(1)}{" "}
                 {selectedMealForView.fats?.unit || "g"}
               </p>
               <p>
-                <strong className={`text-[var(--app-strong-text)]`}>
+                <strong className={`${isDarkMode ? "text-blue-300" : "text-blue-700"}`}>
                   Sugars:
                 </strong>{" "}
                 {parseNutrientValue(selectedMealForView.sugars).toFixed(1)}{" "}
                 {selectedMealForView.sugars?.unit || "g"}
               </p>
               <p>
-                <strong className={`text-[var(--app-strong-text)]`}>
+                <strong className={`${isDarkMode ? "text-blue-300" : "text-blue-700"}`}>
                   Carbs:
                 </strong>{" "}
                 {parseNutrientValue(selectedMealForView.carbs).toFixed(1)}{" "}
                 {selectedMealForView.carbs?.unit || "g"}
               </p>
             </div>
-            <div className="mt-4 pt-4 border-t border-[var(--app-border-color)] text-sm text-[var(--app-normal-text)]">
-              <p><strong className={`text-[var(--app-strong-text)]`}>Meal Type:</strong> {selectedMealForView.mealType}</p>
-              <p className="mt-1"><strong className={`text-[var(--app-strong-text)]`}>Logged on:</strong> {new Date(selectedMealForView.timestamp).toLocaleString()}</p>
+            <div className={`mt-4 pt-4 border-t ${isDarkMode ? "border-gray-600" : "border-gray-200"} text-sm ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>
+              <p><strong className={`${isDarkMode ? "text-blue-300" : "text-blue-700"}`}>Meal Type:</strong> {selectedMealForView.mealType}</p>
+              <p className="mt-1"><strong className={`${isDarkMode ? "text-blue-300" : "text-blue-700"}`}>Logged on:</strong> {new Date(selectedMealForView.timestamp).toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -5247,15 +5084,19 @@ const suggestHealthyWeightRange = async () => {
       {showWelcomeGuide && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div
-            className={`bg-[var(--app-card-bg)] p-6 rounded-lg shadow-xl w-full max-w-md border border-[var(--app-border-color)] flex flex-col animate-fadeInScale`}
+            className={`${
+              isDarkMode ? "bg-gray-800" : "bg-white"
+            } p-6 rounded-lg shadow-xl w-full max-w-md border ${
+              isDarkMode ? "border-gray-600" : "border-gray-300"
+            } flex flex-col animate-fadeInScale`}
           >
             <h3
-              className={`text-xl font-bold mb-4 text-[var(--app-strong-text)]`}
+              className={`text-xl font-bold mb-4 ${isDarkMode ? "text-blue-300" : "text-blue-700"}`}
             >
               {welcomeGuideSteps[welcomeGuideStep].title}
             </h3>
             <p
-              className={`text-base text-[var(--app-normal-text)] mb-6 flex-grow`}
+              className={`text-base ${isDarkMode ? "text-gray-200" : "text-gray-800"} mb-6 flex-grow`}
             >
               {welcomeGuideSteps[welcomeGuideStep].content}
             </p>
@@ -5264,27 +5105,27 @@ const suggestHealthyWeightRange = async () => {
                 {welcomeGuideStep > 0 && (
                   <button
                     onClick={() => setWelcomeGuideStep((s) => s - 1)}
-                    className={`bg-[var(--app-button-secondary-bg)] text-[var(--app-button-secondary-text)] font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+                    className={`${themeClasses.buttonSecondary} font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
                   >
                     Previous
                   </button>
                 )}
               </div>
-              <div className="text-sm text-[var(--app-light-text)]">
+              <div className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
                 Step {welcomeGuideStep + 1} of {welcomeGuideSteps.length}
               </div>
               <div>
                 {welcomeGuideStep < welcomeGuideSteps.length - 1 ? (
                   <button
                     onClick={() => setWelcomeGuideStep((s) => s + 1)}
-                    className={`bg-[var(--app-button-primary-bg)] text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+                    className={`${themeClasses.buttonPrimary} font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
                   >
                     Next
                   </button>
                 ) : (
                   <button
                     onClick={handleDismissWelcomeGuide}
-                    className={`bg-[var(--app-button-success-bg)] text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+                    className={`${themeClasses.buttonSuccess} text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
                   >
                     Get Started!
                   </button>
@@ -5299,17 +5140,21 @@ const suggestHealthyWeightRange = async () => {
       {showWeightCheckInModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div
-            className={`bg-[var(--app-card-bg)] p-6 rounded-lg shadow-xl w-full max-w-md border border-[var(--app-border-color)] text-center animate-fadeInScale`}
+            className={`${
+              isDarkMode ? "bg-gray-800" : "bg-white"
+            } p-6 rounded-lg shadow-xl w-full max-w-md border ${
+              isDarkMode ? "border-gray-600" : "border-gray-300"
+            } text-center animate-fadeInScale`}
           >
             {!checkInResult ? (
               <>
                 <h3
-                  className={`text-xl font-bold mb-2 text-[var(--app-strong-text)]`}
+                  className={`text-xl font-bold mb-2 ${isDarkMode ? "text-blue-300" : "text-blue-700"}`}
                 >
                   Monthly Weight Check-In
                 </h3>
                 <p
-                  className={`text-base text-[var(--app-normal-text)] mb-4`}
+                  className={`text-base ${isDarkMode ? "text-gray-200" : "text-gray-800"} mb-4`}
                 >
                   Your goal is weight loss. Let's check your progress! What is
                   your current weight in kg?
@@ -5317,7 +5162,7 @@ const suggestHealthyWeightRange = async () => {
                 <input
                   type="number"
                   step="0.1"
-                  className={`w-full p-2 mb-4 bg-[var(--app-card-bg)] border border-[var(--app-border-color)] rounded-lg focus:ring-[var(--app-input-focus-ring)] focus:border-[var(--app-input-focus-border)] transition-all duration-200 shadow-sm text-sm text-[var(--app-normal-text)] text-center`}
+                  className={`w-full p-2 mb-4 ${isDarkMode ? "bg-gray-700 border-gray-600" : "bg-white border-gray-300"} rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm text-sm ${isDarkMode ? "text-gray-200" : "text-gray-800"} text-center`}
                   placeholder={`e.g., ${weight > 0 ? weight : 70}`}
                   value={checkInWeight}
                   onChange={(e) => setCheckInWeight(e.target.value)}
@@ -5325,14 +5170,14 @@ const suggestHealthyWeightRange = async () => {
                 <div className="flex justify-center space-x-4">
                   <button
                     onClick={handleWeightCheckInSubmit}
-                    className={`bg-[var(--app-button-primary-bg)] text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+                    className={`${themeClasses.buttonPrimary} font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
                     disabled={!checkInWeight}
                   >
                     Submit Weight
                   </button>
                   <button
                     onClick={handleSkipCheckIn}
-                    className={`bg-[var(--app-button-secondary-bg)] text-[var(--app-button-secondary-text)] font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+                    className={`${themeClasses.buttonSecondary} font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
                   >
                     Skip for now
                   </button>
@@ -5346,7 +5191,7 @@ const suggestHealthyWeightRange = async () => {
                   🎉 Congratulations! 🎉
                 </h3>
                 <p
-                  className={`text-base text-[var(--app-normal-text)] mb-4`}
+                  className={`text-base ${isDarkMode ? "text-gray-200" : "text-gray-800"} mb-4`}
                 >
                   You've reached your target weight of {targetWeight} kg or
                   less! Your new weight is{" "}
@@ -5355,7 +5200,7 @@ const suggestHealthyWeightRange = async () => {
                 </p>
                 <button
                   onClick={handleCloseCheckInModal}
-                  className={`bg-[var(--app-button-success-bg)] text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+                  className={`${themeClasses.buttonSuccess} text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
                 >
                   Awesome!
                 </button>
@@ -5369,7 +5214,7 @@ const suggestHealthyWeightRange = async () => {
                   Keep Going!
                 </h3>
                 <p
-                  className={`text-base text-[var(--app-normal-text)] mb-4`}
+                  className={`text-base ${isDarkMode ? "text-gray-200" : "text-gray-800"} mb-4`}
                 >
                   Your new weight is{" "}
                   <strong>{parseFloat(checkInWeight).toFixed(1)} kg</strong>.
@@ -5378,7 +5223,7 @@ const suggestHealthyWeightRange = async () => {
                 </p>
                 <button
                   onClick={handleCloseCheckInModal}
-                  className={`bg-[var(--app-button-primary-bg)] text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
+                  className={`${themeClasses.buttonPrimary} text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:opacity-90 transition-opacity`}
                 >
                   Got It
                 </button>
