@@ -13,10 +13,8 @@ import {
 } from "recharts";
 
 // ;p imports (these should be at the very top of your file, they are correct)
-import { initializeApp } from "firebase/app";
 import {
   createUserWithEmailAndPassword,
-  getAuth,
   onAuthStateChanged, // For registration
   signInWithEmailAndPassword, // For email/password login
   signOut, // To allow switching users or logging out
@@ -27,22 +25,20 @@ import {
   deleteDoc,
   doc,
   getDoc,
-  getFirestore,
   onSnapshot,
   query,
   setDoc,
 } from "firebase/firestore"; // deleteDoc added
+import { auth, db } from "./firebase";
 
 function App() {
   // Theme state
   const [isDarkMode, setIsDarkMode] = useState(false); // New state for dark mode
 
   // Firebase state
-  const [db, setDb] = useState(null);
-  const [auth, setAuth] = useState(null);
   const [userId, setUserId] = useState(null);
   const [userEmail, setUserEmail] = useState(null); // New state for user email
-  const [isFirebaseReady, setIsFirebaseReady] = useState(false); // Indicates if Firebase app and services are initialized
+  const [isFirebaseReady, setIsFirebaseReady] = useState(false);
 
   // App states
   const [foodDescription, setFoodDescription] = useState("");
@@ -215,20 +211,6 @@ function App() {
     return { daily };
   };
 
-  // --- START: Firebase Configuration (PASTE YOURS HERE) ---
-  // IMPORTANT: This is where you paste the firebaseConfig object ONLY.
-  // The 'const app = initializeApp(firebaseConfig);' and 'const analytics = getAnalytics(app);'
-  // lines should NOT be here. They are handled in the useEffect below.
-  const firebaseConfig = {
-    apiKey: "AIzaSyBS-Ht9jg81rG2nPhJkz2nBc29f-YuBO5M",
-    authDomain: "fitness-tracker-5bc75.firebaseapp.com",
-    projectId: "fitness-tracker-5bc75",
-    storageBucket: "fitness-tracker-5bc75.firebasestorage.app",
-    messagingSenderId: "64792173419",
-    appId: "1:64792173419:web:d8d65ebfa279b4302b0a2e",
-    measurementId: "G-X8ME1BZHME",
-  };
-  // --- END: Firebase Configuration ---
 
   // Add this helper function to calculate age from date of birth
 const calculateAge = (dateOfBirth) => {
@@ -358,8 +340,8 @@ const getNutritionalGoals = async (goalType) => {
         },
     };
 
-    const apiKey = "AIzaSyBS-Ht9jg81rG2nPhJkz2nBc29f-YuBO5M";
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+    const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
 
     let retryCount = 0;
     const maxRetries = 3;
@@ -437,109 +419,32 @@ const setWeightLossGoals = () => getNutritionalGoals('loss');
 const getMaintenanceDailyGoals = () => getNutritionalGoals('maintenance');
 const getMuscleGainGoals = () => getNutritionalGoals('gain');
 
-// Initialize Firebase and Auth. Runs once on mount.
 useEffect(() => {
-    console.log("Firebase Init useEffect triggered."); // DEBUG LOG
-    try {
-      let currentFirebaseConfig = firebaseConfig;
-      if (
-        Object.keys(currentFirebaseConfig).length === 0 &&
-        typeof firebaseConfig !== "undefined"
-      ) {
-        currentFirebaseConfig = JSON.parse(firebaseConfig);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUserId(user.uid);
+        setUserEmail(user.email);
+      } else {
+        setUserId(null);
+        setUserEmail(null);
       }
+      setIsFirebaseReady(true);
+    });
 
-      if (!currentFirebaseConfig.apiKey) {
-        setError(
-          "Firebase configuration is missing. Data saving will not work. Please paste your config in the code."
-        );
-        console.error("Firebase config missing or invalid.");
-        return;
-      }
+    return () => unsubscribe();
+  }, []);
 
-      const firebaseApp = initializeApp(currentFirebaseConfig);
-      const authInstance = getAuth(firebaseApp);
-      const firestoreInstance = getFirestore(firebaseApp);
-
-      setDb(firestoreInstance);
-      setAuth(authInstance);
-      setIsFirebaseReady(true); // Firebase app and services are now initialized
-
-      // Set up auth state listener
-      const unsubscribeAuth = onAuthStateChanged(authInstance, async (user) => {
-        console.log(
-          "onAuthStateChanged triggered. User:",
-          user ? user.uid : "null"
-        ); // DEBUG LOG
-        if (user) {
-          setUserId(user.uid);
-          setUserEmail(user.email);
-        } else {
-          // Reset userId and email on logout
-          setUserId(null);
-          setUserEmail(null);
-          // Only reset other states if Firebase is truly ready AND a user was previously logged in
-          // This prevents clearing data if user state is null on initial load before any login
-          if (isFirebaseReady) {
-            // Make sure Firebase services are initialized first
-            // Reset app states on explicit logout
-            setWeight(0);
-            setHeight(0);
-            setDob("");
-            setGender("");
-            setTargetWeight(0);
-            setTargetDate("");
-            setRecommendedDailyTargets({}); // Reset to empty object
-            setSuggestedWeightRange({}); // Reset to empty object
-            setMaintenanceGoals({}); // Reset maintenance goals on logout
-            setFoodEntries([]);
-            setWorkoutEntries([]); // Reset workout entries on logout
-            setDailyTotals({ calories: 0, protein: 0, fats: 0, sugars: 0, carbs: 0, });
-            setNutritionalInfo(null); // Clear last analysis result on logout
-            // Reset theme mode to default light mode on logout
-            setIsDarkMode(false);
-            setHistoryDate(""); // Reset history date on logout
-
-            // Clean up old listeners to prevent memory leaks if user logs out/changes
-            if (userProfileUnsubscribe.current) {
-              userProfileUnsubscribe.current();
-              userProfileUnsubscribe.current = null;
-            }
-            if (foodEntriesUnsubscribe.current) {
-              foodEntriesUnsubscribe.current();
-              foodEntriesUnsubscribe.current = null;
-            }
-            if (workoutEntriesUnsubscribe.current) {
-              // New: Clear workout listener
-              workoutEntriesUnsubscribe.current();
-              workoutEntriesUnsubscribe.current = null;
-            }
-          }
-        }
-      });
-      return () => unsubscribeAuth(); // Cleanup auth listener on unmount
-    } catch (e) {
-      console.error("Error initializing Firebase:", e);
-      setError(
-        "Failed to initialize app. Data saving will not work. Check your Firebase config and console."
-      );
-      setIsFirebaseReady(false);
-    }
-  }, []); // Empty dependency array means this runs once on mount
-
-  // Load user profile and food entries. Runs when db or userId changes AND Firebase is ready.
+  // Load user profile and food entries. Runs when userId and isFirebaseReady changes.
   useEffect(() => {
     console.log(
-      "Data Loading useEffect triggered. db:",
-      !!db,
-      "userId:",
+      "Data Loading useEffect triggered. userId:",
       userId,
       "isFirebaseReady:",
       isFirebaseReady
     ); // DEBUG LOG
 
-    // Ensure Firebase is ready and we have a logged-in user to fetch data for
-    if (isFirebaseReady && db && userId) {
+    // Ensure we have a logged-in user to fetch data for
+    if (userId && isFirebaseReady) {
       console.log(
         "Attempting to set up Firestore listeners for userId:",
         userId
@@ -708,9 +613,7 @@ useEffect(() => {
       );
     } else {
       console.log(
-        "Data Loading useEffect: Waiting for Firebase to be ready (isFirebaseReady:",
-        isFirebaseReady,
-        ") or user to be logged in (userId:",
+        "Data Loading useEffect: Waiting for user to be logged in (userId:",
         userId,
         ")"
       ); // DEBUG LOG
@@ -732,12 +635,12 @@ useEffect(() => {
         workoutEntriesUnsubscribe.current = null;
       }
     };
-  }, [db, userId, isFirebaseReady]); // Dependencies: re-run when db, userId, or isFirebaseReady changes
+  }, [userId, isFirebaseReady]); // Dependencies: re-run when userId changes
 
   // useEffect to trigger monthly weight check-in
   useEffect(() => {
     // Don't run if modal is already open, or we are not ready
-    if (showWeightCheckInModal || !isFirebaseReady || !userId || !db) {
+    if (showWeightCheckInModal || !userId || !isFirebaseReady) {
       return;
     }
 
@@ -779,7 +682,7 @@ useEffect(() => {
         }
       }
     }
-  }, [userId, targetOption, targetWeight, lastMonthlyCheckIn, isFirebaseReady, db, showWeightCheckInModal]);
+  }, [userId, targetOption, targetWeight, lastMonthlyCheckIn, showWeightCheckInModal, isFirebaseReady]);
 
   // Save user profile data whenever relevant states change (debounced for efficiency)
   useEffect(() => {
@@ -803,7 +706,7 @@ useEffect(() => {
         Object.keys(maintenanceGoals || {}).length > 0 ||
         Object.keys(muscleGainGoals || {}).length > 0;
 
-      if (db && userId && isFirebaseReady && (hasProfileDataToSave || isDarkMode)) {
+      if (userId && isFirebaseReady && (hasProfileDataToSave || isDarkMode)) {
         const appId = "default-app-id"; // FIX: Use a constant string for appId
         const userProfileRef = doc(
           db,
@@ -895,7 +798,6 @@ useEffect(() => {
     muscleGainGoals,
     historyDate,
     isDarkMode,
-    db,
     userId,
     isFirebaseReady,
   ]);
@@ -1138,8 +1040,8 @@ const analyzeFood = async () => {
       },
     };
 
-    const apiKey = "AIzaSyBS-Ht9jg81rG2nPhJkz2nBc29f-YuBO5M";
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+    const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
 
     let retryCount = 0;
     const maxRetries = 3;
@@ -1377,8 +1279,8 @@ const suggestHealthyWeightRange = async () => {
       },
     };
 
-    const apiKey = "AIzaSyBS-Ht9jg81rG2nPhJkz2nBc29f-YuBO5M";
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+    const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
 
     let retryCount = 0;
     const maxRetries = 3;
@@ -1577,8 +1479,8 @@ const suggestHealthyWeightRange = async () => {
           },
         };
 
-        const apiKey = "AIzaSyBS-Ht9jg81rG2nPhJkz2nBc29f-YuBO5M";
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+        const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
 
         // This is a simplified fetch, you can add retries here if needed
         try {
@@ -1757,8 +1659,8 @@ const suggestHealthyWeightRange = async () => {
       },
     };
 
-    const apiKey = "AIzaSyBS-Ht9jg81rG2nPhJkz2nBc29f-YuBO5M"; // API key is handled by Canvas environment
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+    const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
 
     let retryCount = 0;
     const maxRetries = 3;
